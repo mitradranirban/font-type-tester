@@ -1,9 +1,9 @@
 === Font Type Tester ===
 Contributors: mitradranirban
-Donate link: https://paypal.me/dranirban
-Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools, font-upload, static-fonts
+Donate link: https://your-domain.com/donate
+Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools, static-fonts
 Requires at least: 5.0
-Tested up to: 6.4
+Tested up to: 6.8
 Requires PHP: 7.4
 Stable tag: 1.0.0
 License: GPLv2 or later
@@ -54,10 +54,24 @@ The plugin automatically renames uploaded font files with random strings, ensuri
 
 **Usage:**
 
-1. Add the shortcode `[font_tester]` to any page or post where you want the font tester to appear
-2. Upload your font files using the upload form
-3. Select fonts from the dropdown and start testing!
+1. Admin Side:
 
+Go to Settings → Font Tester in WordPress admin
+Upload fonts with optional custom names
+Manage (view/delete) uploaded fonts
+Copy the shortcode [font_tester] for use
+
+
+2. Front-end:
+
+Add [font_tester] shortcode to any page/post
+Users can select from available fonts via dropdown
+Full typography controls remain available
+No upload interface visible to regular users
+
+
+
+This modification provides better security, cleaner separation of concerns, and a more professional admin experience while maintaining all the font testing functionality for end users.RetryClaude can make mistakes. Please double-check responses.
 == Frequently Asked Questions ==
 
 = What font formats are supported? =
@@ -86,22 +100,49 @@ The plugin respects your WordPress and server upload limits. Most font files are
 
 = Does this work with variable fonts? =
 
-This version focuses on static fonts. Variable font support may be added in future versions based on user feedback.
+This version focuses on static fonts. Variable font support is available in our <a href="https://github.com/mitradranirban/variable-font-sampler">Variable Font sampler</a>.
 
 = Can I delete uploaded fonts? =
 
 Yes! Each uploaded font can be deleted individually through the interface, which removes both the file and database record.
 
-== Screenshots ==
-
-1. **Main Interface** - The complete font testing interface with all controls
-2. **Font Upload** - Simple drag-and-drop font upload area
-3. **Typography Controls** - Real-time sliders for font adjustments
-4. **Font Preview** - Live preview area showing your selected font
-5. **Mobile View** - Responsive design works perfectly on mobile devices
-6. **Font Management** - Easy font selection and deletion
 
 == Changelog ==
+= 1.1.0 =
+1. Admin Interface Added
+
+New admin menu item under Settings → Font Tester
+Clean admin interface for font upload and management
+Table view of all uploaded fonts with delete functionality
+Usage instructions for the shortcode
+
+2. Front-end Changes
+
+Removed font upload form completely
+Simplified interface focusing only on font testing
+Users can only select from fonts uploaded by administrators
+Shows message when no fonts are available
+
+3. Security Improvements
+
+Added capability checks (manage_options) for all admin functions
+Only administrators can upload and delete fonts
+Enhanced permission validation
+
+4. New Files Created
+The plugin now creates 4 files:
+
+font-tester.css - Front-end styles
+font-tester.js - Front-end JavaScript
+font-tester-admin.css - Admin interface styles
+font-tester-admin.js - Admin interface JavaScript
+
+5. Enhanced Functionality
+
+Better caching system
+Improved database queries with prepared statements
+Cleaner admin interface with WordPress styling
+Automatic page reload after font upload for immediate feedback
 
 = 1.0.0 =
 * Initial release
