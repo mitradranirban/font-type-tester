@@ -69,9 +69,6 @@ Users can select from available fonts via dropdown
 Full typography controls remain available
 No upload interface visible to regular users
 
-
-
-This modification provides better security, cleaner separation of concerns, and a more professional admin experience while maintaining all the font testing functionality for end users.RetryClaude can make mistakes. Please double-check responses.
 == Frequently Asked Questions ==
 
 = What font formats are supported? =
@@ -92,7 +89,7 @@ When the plugin is deactivated, all uploaded font files and database entries are
 
 = Can I customize the sample text? =
 
-Yes! The plugin includes a textarea where you can input any custom text to test how fonts render with your specific content.
+Yes! The plugin includes a textarea where user can input any custom text to test how fonts render with your specific content.
 
 = Is there a file size limit for font uploads? =
 
