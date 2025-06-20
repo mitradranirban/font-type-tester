@@ -3,7 +3,7 @@
  * Plugin Name: Font Type Tester
  * Plugin URI: https://github.com/mitradranirban/font-type-tester
  * Description: A comprehensive font testing tool with admin interface for font management
- * Version: 1.1.1
+ * Version: 1.1.2
  * Author: Anirban Mitra
  * License: GPL v2 or later
  */
@@ -432,6 +432,15 @@ class FontTypeTester {
         ob_start();
         ?>
         <div id="font-tester-container">
+            <!-- Font Preview Section - Now at the top -->
+            <div class="font-preview-area">
+                <h3>Font Preview</h3>
+                <div id="font-preview">
+                    <p id="preview-text">Select a font to see the preview</p>
+                </div>
+            </div>
+
+            <!-- Controls Section - Now below preview -->
             <div class="font-tester-controls">
                 <div class="control-section">
                     <h3>Font Selection</h3>
@@ -484,13 +493,6 @@ class FontTypeTester {
                         <p><strong>Source Protection:</strong> Font files are automatically renamed with random strings to protect the original source.</p>
                         <p id="current-font-info"></p>
                     </div>
-                </div>
-            </div>
-
-            <div class="font-preview-area">
-                <h3>Font Preview</h3>
-                <div id="font-preview">
-                    <p id="preview-text">Select a font to see the preview</p>
                 </div>
             </div>
         </div>

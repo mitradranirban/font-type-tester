@@ -5,7 +5,7 @@ Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools,
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 1.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -105,6 +105,10 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 
 == Changelog ==
+= 1.1.2 = 
+* Rearrange UI to put Font Preview on top 
+= 1.1.1 = 
+* Correcte Readme
 = 1.1.0 =
 1. Admin Interface Added
 
