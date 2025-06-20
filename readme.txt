@@ -1,6 +1,6 @@
 === Font Type Tester ===
 Contributors: mitradranirban
-Donate link: https://your-domain.com/donate
+Donate link: https://paypal.me/dranirban
 Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools, font-upload, static-fonts
 Requires at least: 5.0
 Tested up to: 6.4
