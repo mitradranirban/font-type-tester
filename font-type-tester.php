@@ -254,7 +254,6 @@ class FontTypeTester {
             'error' => $file['error'],
             'size' => $file['size']
         );
-        error_log('DEBUG: About to call wp_handle_upload');
         $uploaded_file = wp_handle_upload(
             $upload_file_array,
             array(
@@ -262,7 +261,6 @@ class FontTypeTester {
                 'upload_error_handler' => array($this, 'handle_upload_error')
             )
         );
-        error_log('DEBUG: After wp_handle_upload');
 
         if (!empty($uploaded_file['error'])) {
             wp_send_json_error(esc_html($uploaded_file['error']));

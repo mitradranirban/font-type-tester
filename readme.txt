@@ -1,11 +1,11 @@
 === Font Type Tester ===
 Contributors: mitradranirban
-Donate link: https://your-domain.com/donate
+Donate link: https://paypal.me/dranirban
 Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools, static-fonts
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
