@@ -5,7 +5,7 @@ Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools,
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -105,6 +105,8 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 
 == Changelog ==
+= 1.1.3 =
+* Prepend function names with unique characters fotyte_ 
 = 1.1.2 = 
 * Rearrange UI to put Font Preview on top 
 = 1.1.1 = 
@@ -155,12 +157,7 @@ Automatic page reload after font upload for immediate feedback
 * Secure AJAX handling
 * Database integration for font management
 * Automatic cleanup on deactivation
-
-== Upgrade Notice ==
-
-= 1.0.0 =
-Initial release of Font Type Tester. Install to start testing fonts with advanced typography controls.
-
+ 
 == Technical Requirements ==
 
 * WordPress 5.0 or higher
