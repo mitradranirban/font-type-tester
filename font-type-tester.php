@@ -3,7 +3,7 @@
  * Plugin Name: Font Type Tester
  * Plugin URI: https://github.com/mitradranirban/font-type-tester
  * Description: A comprehensive font testing tool with admin interface for font management
- * Version: 1.1.3
+ * Version: 1.1.4
  * Author: Anirban Mitra
  * License: GPL v2 or later
  */
@@ -24,6 +24,7 @@ class fotyte_FontTypeTester {
 
         add_action('init', array($this, 'fotyte_init'));
         add_action('wp_enqueue_scripts', array($this, 'fotyte_enqueue_scripts'));
+        add_action('wp_enqueue_scripts', array($this, 'fotyte_add_dynamic_styles'), 20);
         add_action('admin_enqueue_scripts', array($this, 'fotyte_enqueue_admin_scripts'));
         add_action('admin_menu', array($this, 'fotyte_add_admin_menu'));
         add_action('wp_ajax_upload_font', array($this, 'fotyte_handle_font_upload'));
@@ -62,6 +63,9 @@ class fotyte_FontTypeTester {
 
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
+
+        // Create the external files
+        $this->fotyte_create_external_files();
     }
 
     public function fotyte_deactivate() {
@@ -92,14 +96,51 @@ class fotyte_FontTypeTester {
     }
 
     public function fotyte_enqueue_scripts() {
-        wp_enqueue_script('font-tester-js', $this->plugin_url . 'font-tester.js', array('jquery'), '1.1.0', true);
-        wp_enqueue_style('font-tester-css', $this->plugin_url . 'font-tester.css', array(), '1.1.0');
+        // Register scripts and styles first
+        wp_register_script(
+            'font-tester-js',
+            $this->plugin_url . 'font-tester.js',
+            array('jquery'),
+            '1.1.4',
+            array(
+                'in_footer' => true,
+                'strategy' => 'defer'
+            )
+        );
+        
+        wp_register_style(
+            'font-tester-css',
+            $this->plugin_url . 'font-tester.css',
+            array(),
+            '1.1.4'
+        );
 
-        wp_localize_script('font-tester-js', 'fontTester', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('font_tester_nonce'),
-            'plugin_url' => $this->plugin_url
-        ));
+        // Only enqueue on pages with the shortcode
+        global $post;
+        if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'font_tester')) {
+            wp_enqueue_script('font-tester-js');
+            wp_enqueue_style('font-tester-css');
+            
+            wp_localize_script('font-tester-js', 'fontTester', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('font_tester_nonce'),
+                'plugin_url' => $this->plugin_url
+            ));
+        }
+    }
+
+    public function fotyte_add_dynamic_styles() {
+        if (is_admin()) return;
+        
+        // Only add if shortcode is present on the page
+        global $post;
+        if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'font_tester')) {
+            wp_add_inline_style('font-tester-css', '
+                /* Dynamic font styles will be injected here via JavaScript */
+                #font-preview { transition: all 0.3s ease; }
+                .font-face-dynamic { font-display: swap; }
+            ');
+        }
     }
 
     public function fotyte_enqueue_admin_scripts($hook) {
@@ -107,8 +148,23 @@ class fotyte_FontTypeTester {
             return;
         }
 
-        wp_enqueue_script('font-tester-admin-js', $this->plugin_url . 'font-tester-admin.js', array('jquery'), '1.1.0', true);
-        wp_enqueue_style('font-tester-admin-css', $this->plugin_url . 'font-tester-admin.css', array(), '1.1.0');
+        wp_register_script(
+            'font-tester-admin-js',
+            $this->plugin_url . 'font-tester-admin.js',
+            array('jquery'),
+            '1.1.4',
+            array('in_footer' => true)
+        );
+        
+        wp_register_style(
+            'font-tester-admin-css',
+            $this->plugin_url . 'font-tester-admin.css',
+            array(),
+            '1.1.4'
+        );
+        
+        wp_enqueue_script('font-tester-admin-js');
+        wp_enqueue_style('font-tester-admin-css');
 
         wp_localize_script('font-tester-admin-js', 'fontTesterAdmin', array(
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -228,6 +284,7 @@ class fotyte_FontTypeTester {
             wp_send_json_error('File upload error');
         }
 
+        // Validate file type
         $allowed_types = array('ttf', 'otf', 'woff', 'woff2');
         $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
@@ -425,6 +482,10 @@ class fotyte_FontTypeTester {
     public function fotyte_render_font_tester($atts) {
         $fonts = $this->fotyte_get_uploaded_fonts();
 
+        // Enqueue styles and scripts when shortcode is used
+        wp_enqueue_script('font-tester-js');
+        wp_enqueue_style('font-tester-css');
+
         ob_start();
         ?>
         <div id="font-tester-container">
@@ -463,232 +524,3 @@ class fotyte_FontTypeTester {
                         <input type="range" id="line-height-slider" min="0.8" max="3.0" value="1.4" step="0.1">
                     </div>
                     <div class="slider-group">
-                        <label for="letter-spacing-slider">Letter Spacing: <span id="letter-spacing-value">0</span>px</label>
-                        <input type="range" id="letter-spacing-slider" min="-5" max="20" value="0" step="0.5">
-                    </div>
-                    <div class="slider-group">
-                        <label for="word-spacing-slider">Word Spacing: <span id="word-spacing-value">0</span>px</label>
-                        <input type="range" id="word-spacing-slider" min="-10" max="50" value="0" step="1">
-                    </div>
-                </div>
-                <div class="control-section">
-                    <h3>Sample Text</h3>
-                    <textarea id="sample-text" rows="4" cols="50">The quick brown fox jumps over the lazy dog. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 1234567890 !@#$%^&*()_+-=[]{}|[...]</textarea>
-                </div>
-                <div class="control-section">
-                    <h3>Font Information</h3>
-                    <div id="font-info">
-                        <p><strong>Source Protection:</strong> Font files are automatically renamed with random strings to protect the original source.</p>
-                        <p id="current-font-info"></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <style id="dynamic-font-styles"></style>
-        <?php
-        return ob_get_clean();
-    }
-}
-
-// Initialize the plugin
-new fotyte_FontTypeTester();
-
-// Admin CSS Styles (save as font-tester-admin.css in the same directory)
-if (!function_exists('fotyte_font_tester_admin_css_content')) {
-    function fotyte_font_tester_admin_css_content() {
-        return '
-.font-tester-admin .card {
-    margin-bottom: 20px;
-}
-.font-tester-admin .card h2 {
-    margin-top: 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #ccd0d4;
-}
-.font-tester-admin .form-table th {
-    width: 150px;
-}
-.font-tester-admin .delete-font {
-    color: #a00;
-    border-color: #a00;
-}
-.font-tester-admin .delete-font:hover {
-    background: #a00;
-    color: white;
-}
-.font-tester-admin .loading {
-    opacity: 0.6;
-    pointer-events: none;
-}
-#fonts-list .wp-list-table {
-    margin-top: 10px;
-}
-#fonts-list .wp-list-table th,
-#fonts-list .wp-list-table td {
-    padding: 8px 10px;
-}
-.font-tester-admin code {
-    background: #f1f1f1;
-    padding: 2px 4px;
-    border-radius: 3px;
-}
-        ';
-    }
-}
-
-// Front-end CSS Styles (save as font-tester.css in the same directory)
-if (!function_exists('fotyte_font_tester_css_content')) {
-    function fotyte_font_tester_css_content() {
-        return '
-#font-tester-container {
-    max-width: 1200px;
-    margin: 20px auto;
-    font-family: Arial, sans-serif;
-    background: #f9f9f9;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-.font-tester-controls {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-}
-.control-section {
-    background: white;
-    padding: 20px;
-    border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.control-section h3 {
-    margin-top: 0;
-    color: #333;
-    border-bottom: 2px solid #007cba;
-    padding-bottom: 10px;
-}
-#font-selector,
-#sample-text {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-}
-.slider-group {
-    margin-bottom: 20px;
-}
-.slider-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: #555;
-}
-input[type="range"] {
-    width: 100%;
-    height: 6px;
-    background: #ddd;
-    outline: none;
-    border-radius: 3px;
-    -webkit-appearance: none;
-}
-input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    background: #007cba;
-    cursor: pointer;
-    border-radius: 50%;
-}
-input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    background: #007cba;
-    cursor: pointer;
-    border-radius: 50%;
-    border: none;
-}
-.font-preview-area {
-    background: white;
-    padding: 30px;
-    border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.font-preview-area h3 {
-    margin-top: 0;
-    color: #333;
-    border-bottom: 2px solid #007cba;
-    padding-bottom: 10px;
-}
-#font-preview {
-    min-height: 200px;
-    padding: 20px;
-    border: 2px dashed #ddd;
-    border-radius: 4px;
-    background: #fafafa;
-}
-#preview-text {
-    margin: 0;
-    word-wrap: break-word;
-    line-height: 1.4;
-}
-#font-info {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 4px;
-    border-left: 4px solid #007cba;
-}
-#font-info p {
-    margin: 5px 0;
-    font-size: 14px;
-    color: #666;
-}
-@media (max-width: 768px) {
-    .font-tester-controls {
-        grid-template-columns: 1fr;
-    }
-    #font-tester-container {
-        margin: 10px;
-        padding: 15px;
-    }
-}
-        ';
-    }
-}
-
-// Admin JavaScript (save as font-tester-admin.js in the same directory)
-if (!function_exists('fotyte_font_tester_admin_js_content')) {
-    function fotyte_font_tester_admin_js_content() {
-        return "
-// ... (leave JS content as is, or prepend JS function names if desired)
-        ";
-    }
-}
-
-// Front-end JavaScript (save as font-tester.js in the same directory)
-if (!function_exists('fotyte_font_tester_js_content')) {
-    function fotyte_font_tester_js_content() {
-        return "
-// ... (leave JS content as is, or prepend JS function names if desired)
-        ";
-    }
-}
-
-// Create the CSS and JS files when the plugin is activated
-register_activation_hook(__FILE__, function() {
-    $plugin_dir = plugin_dir_path(__FILE__);
-
-    // Create front-end CSS file
-    file_put_contents($plugin_dir . 'font-tester.css', fotyte_font_tester_css_content());
-
-    // Create front-end JS file
-    file_put_contents($plugin_dir . 'font-tester.js', fotyte_font_tester_js_content());
-
-    // Create admin CSS file
-    file_put_contents($plugin_dir . 'font-tester-admin.css', fotyte_font_tester_admin_css_content());
-
-    // Create admin JS file
-    file_put_contents($plugin_dir . 'font-tester-admin.js', fotyte_font_tester_admin_js_content());
-});
-?>
