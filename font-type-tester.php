@@ -524,3 +524,408 @@ class fotyte_FontTypeTester {
                         <input type="range" id="line-height-slider" min="0.8" max="3.0" value="1.4" step="0.1">
                     </div>
                     <div class="slider-group">
+                        <label for="letter-spacing-slider">Letter Spacing: <span id="letter-spacing-value">0</span>px</label>
+                        <input type="range" id="letter-spacing-slider" min="-5" max="20" value="0" step="0.5">
+                    </div>
+                    <div class="slider-group">
+                        <label for="word-spacing-slider">Word Spacing: <span id="word-spacing-value">0</span>px</label>
+                        <input type="range" id="word-spacing-slider" min="-10" max="50" value="0" step="1">
+                    </div>
+                </div>
+                <div class="control-section">
+                    <h3>Sample Text</h3>
+                    <textarea id="sample-text" rows="4" cols="50">The quick brown fox jumps over the lazy dog. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 1234567890 !@#$%^&*()_+-=[]{}|;':\",./<>?</textarea>
+                </div>
+                <div class="control-section">
+                    <h3>Font Information</h3>
+                    <div id="font-info">
+                        <p><strong>Source Protection:</strong> Font files are automatically renamed with random strings to protect the original source.</p>
+                        <p id="current-font-info"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    private function fotyte_create_external_files() {
+        $plugin_dir = plugin_dir_path(__FILE__);
+
+        // Create front-end CSS file
+        file_put_contents($plugin_dir . 'font-tester.css', $this->fotyte_get_frontend_css());
+
+        // Create front-end JS file
+        file_put_contents($plugin_dir . 'font-tester.js', $this->fotyte_get_frontend_js());
+
+        // Create admin CSS file
+        file_put_contents($plugin_dir . 'font-tester-admin.css', $this->fotyte_get_admin_css());
+
+        // Create admin JS file
+        file_put_contents($plugin_dir . 'font-tester-admin.js', $this->fotyte_get_admin_js());
+    }
+
+    private function fotyte_get_frontend_css() {
+        return '
+#font-tester-container {
+    max-width: 1200px;
+    margin: 20px auto;
+    font-family: Arial, sans-serif;
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.font-tester-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+.control-section {
+    background: white;
+    padding: 20px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.control-section h3 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #007cba;
+    padding-bottom: 10px;
+}
+#font-selector,
+#sample-text {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.slider-group {
+    margin-bottom: 20px;
+}
+.slider-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #555;
+}
+input[type="range"] {
+    width: 100%;
+    height: 6px;
+    background: #ddd;
+    outline: none;
+    border-radius: 3px;
+    -webkit-appearance: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #007cba;
+    cursor: pointer;
+    border-radius: 50%;
+}
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #007cba;
+    cursor: pointer;
+    border-radius: 50%;
+    border: none;
+}
+.font-preview-area {
+    background: white;
+    padding: 30px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+.font-preview-area h3 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #007cba;
+    padding-bottom: 10px;
+}
+#font-preview {
+    min-height: 200px;
+    padding: 20px;
+    border: 2px dashed #ddd;
+    border-radius: 4px;
+    background: #fafafa;
+}
+#preview-text {
+    margin: 0;
+    word-wrap: break-word;
+    line-height: 1.4;
+    transition: all 0.3s ease;
+}
+#font-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    border-left: 4px solid #007cba;
+}
+#font-info p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #666;
+}
+@media (max-width: 768px) {
+    .font-tester-controls {
+        grid-template-columns: 1fr;
+    }
+    #font-tester-container {
+        margin: 10px;
+        padding: 15px;
+    }
+}
+        ';
+    }
+
+    private function fotyte_get_admin_css() {
+        return '
+.font-tester-admin .card {
+    margin-bottom: 20px;
+}
+.font-tester-admin .card h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ccd0d4;
+}
+.font-tester-admin .form-table th {
+    width: 150px;
+}
+.font-tester-admin .delete-font {
+    color: #a00;
+    border-color: #a00;
+}
+.font-tester-admin .delete-font:hover {
+    background: #a00;
+    color: white;
+}
+.font-tester-admin .loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+#fonts-list .wp-list-table {
+    margin-top: 10px;
+}
+#fonts-list .wp-list-table th,
+#fonts-list .wp-list-table td {
+    padding: 8px 10px;
+}
+.font-tester-admin code {
+    background: #f1f1f1;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+        ';
+    }
+
+    private function fotyte_get_frontend_js() {
+        return '
+jQuery(document).ready(function($) {
+    let currentFontName = "";
+
+    // Font selector change handler
+    $("#font-selector").on("change", function() {
+        const fontUrl = $(this).val();
+        const fontId = $(this).find("option:selected").data("id");
+        const fontName = $(this).find("option:selected").text();
+        
+        if (fontUrl) {
+            loadFont(fontUrl, fontName, fontId);
+            updateFontInfo(fontName, fontId);
+        } else {
+            resetPreview();
+        }
+    });
+
+    // Slider event handlers
+    $("#font-size-slider").on("input", function() {
+        const value = $(this).val();
+        $("#font-size-value").text(value);
+        updatePreviewStyles();
+    });
+
+    $("#line-height-slider").on("input", function() {
+        const value = $(this).val();
+        $("#line-height-value").text(value);
+        updatePreviewStyles();
+    });
+
+    $("#letter-spacing-slider").on("input", function() {
+        const value = $(this).val();
+        $("#letter-spacing-value").text(value);
+        updatePreviewStyles();
+    });
+
+    $("#word-spacing-slider").on("input", function() {
+        const value = $(this).val();
+        $("#word-spacing-value").text(value);
+        updatePreviewStyles();
+    });
+
+    // Sample text change handler
+    $("#sample-text").on("input", function() {
+        $("#preview-text").text($(this).val());
+    });
+
+    function loadFont(fontUrl, fontName, fontId) {
+        // Remove existing dynamic font styles
+        $("#dynamic-font-face").remove();
+        
+        // Create unique font family name
+        currentFontName = "FontTester_" + fontId + "_" + Date.now();
+        
+        // Create font-face CSS
+        const fontFaceCSS = `
+            @font-face {
+                font-family: "${currentFontName}";
+                src: url("${fontUrl}");
+                font-display: swap;
+            }
+        `;
+        
+        // Inject the font-face CSS
+        $("<style>")
+            .attr("id", "dynamic-font-face")
+            .html(fontFaceCSS)
+            .appendTo("head");
+        
+        // Apply the font to preview
+        updatePreviewStyles();
+    }
+
+    function updatePreviewStyles() {
+        if (!currentFontName) return;
+        
+        const fontSize = $("#font-size-slider").val();
+        const lineHeight = $("#line-height-slider").val();
+        const letterSpacing = $("#letter-spacing-slider").val();
+        const wordSpacing = $("#word-spacing-slider").val();
+        
+        $("#preview-text").css({
+            "font-family": `"${currentFontName}", sans-serif`,
+            "font-size": fontSize + "px",
+            "line-height": lineHeight,
+            "letter-spacing": letterSpacing + "px",
+            "word-spacing": wordSpacing + "px"
+        });
+    }
+
+    function updateFontInfo(fontName, fontId) {
+        $("#current-font-info").html(`
+            <strong>Current Font:</strong> ${fontName}<br>
+            <strong>Font ID:</strong> ${fontId}
+        `);
+    }
+
+    function resetPreview() {
+        $("#dynamic-font-face").remove();
+        $("#preview-text").css({
+            "font-family": "",
+            "font-size": "",
+            "line-height": "",
+            "letter-spacing": "",
+            "word-spacing": ""
+        }).text("Select a font to see the preview");
+        $("#current-font-info").html("");
+        currentFontName = "";
+    }
+});
+        ';
+    }
+
+    private function fotyte_get_admin_js() {
+        return '
+jQuery(document).ready(function($) {
+    // Font upload form handler
+    $("#font-upload-form").on("submit", function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        const fontFile = $("#font-file")[0].files[0];
+        const fontName = $("#font-name").val();
+        
+        if (!fontFile) {
+            alert("Please select a font file.");
+            return;
+        }
+        
+        formData.append("action", "upload_font");
+        formData.append("nonce", fontTesterAdmin.nonce);
+        formData.append("font_file", fontFile);
+        formData.append("font_name", fontName);
+        
+        const $submitBtn = $("#submit");
+        $submitBtn.prop("disabled", true).val("Uploading...");
+        
+        $.ajax({
+            url: fontTesterAdmin.ajax_url,
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    alert("Font uploaded successfully!");
+                    location.reload();
+                } else {
+                    alert("Error: " + response.data);
+                }
+            },
+            error: function() {
+                alert("An error occurred during upload.");
+            },
+            complete: function() {
+                $submitBtn.prop("disabled", false).val("Upload Font");
+            }
+        });
+    });
+
+    // Font delete handler
+    $(document).on("click", ".delete-font", function() {
+        if (!confirm("Are you sure you want to delete this font?")) {
+            return;
+        }
+        
+        const fontId = $(this).data("font-id");
+        const $row = $(this).closest("tr");
+        
+        $.ajax({
+            url: fontTesterAdmin.ajax_url,
+            type: "POST",
+            data: {
+                action: "delete_font",
+                nonce: fontTesterAdmin.nonce,
+                font_id: fontId
+            },
+            success: function(response) {
+                if (response.success) {
+                    $row.fadeOut(function() {
+                        $(this).remove();
+                        if ($("#fonts-list tbody tr").length === 0) {
+                            $("#fonts-list").html("<p>No fonts uploaded yet.</p>");
+                        }
+                    });
+                } else {
+                    alert("Error: " + response.data);
+                }
+            },
+            error: function() {
+                alert("An error occurred while deleting the font.");
+            }
+        });
+    });
+});
+        ';
+    }
+}
+
+// Initialize the plugin
+new fotyte_FontTypeTester();
+?>
