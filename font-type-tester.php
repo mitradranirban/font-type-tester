@@ -1,10 +1,12 @@
 <?php
 /**
- * Font Type Tester
+ * Plugin Name: Font Type Tester
+ * Plugin-url: https://github.com/mitradranirban/font-type-tester
+ * Description: A comprehensive font testing tool with real-time typography controls
  * submitter: mitradranirban
- * @package FontTypeTester
- * @version 1.1.9
- * plugin-url: https://github.com/mitradranirban/font-type-tester
+ * Author: mitradranirban
+ * Version 1.1.9
+ * Text Domain: font-type-tester
  */
 
 if (!defined('ABSPATH')) {
