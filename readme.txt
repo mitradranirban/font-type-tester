@@ -5,7 +5,7 @@ Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools,
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.5
+Stable tag: 1.1.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,12 +59,12 @@ The plugin automatically renames uploaded font files with random strings, ensuri
 Go to Settings → Font Tester in WordPress admin
 Upload fonts with optional custom names
 Manage (view/delete) uploaded fonts
-Copy the shortcode [font_tester] for use
+Copy the shortcode [fotyte_font_tester] for use
 
 
 2. Front-end:
 
-Add [font_tester] shortcode to any page/post
+Add [fotyte_font_tester] shortcode to any page/post
 Users can select from available fonts via dropdown
 Full typography controls remain available
 No upload interface visible to regular users
@@ -105,6 +105,8 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 
 == Changelog ==
+= 1.1.6 =
+* The heredoc string (<<<JS ... JS;) used to embed multiline text (like JavaScript) without worrying about escaping quotes. 
 = 1.1.5 =
 * Fully prefixed all functions, actions, shortcodes, and script handles with `fotyte_` to comply with WP best practices
 * Updated JavaScript global variables to use `fotyteFontTester` and `fotyteFontTesterAdmin`
