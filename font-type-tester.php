@@ -5,7 +5,7 @@
  * Description: A comprehensive font testing tool with real-time typography controls
  * submitter: mitradranirban
  * Author: mitradranirban
- * Version: 1.1.10
+ * Version: 1.1.9
  * License: GPL v3 or later
  * Text Domain: font-type-tester
  */
@@ -117,6 +117,8 @@ class FotyteWordPressFontTester {
             global $wpdb;
             $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
             
+            // Direct database call necessary for custom table - no WordPress API alternative
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
             $inserted = $wpdb->insert(
                 $table,
                 [
@@ -160,7 +162,8 @@ class FotyteWordPressFontTester {
             global $wpdb;
             $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
             
-            // Use WordPress built-in delete method
+            // Use WordPress built-in delete method - direct query necessary for custom table
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
             $deleted = $wpdb->delete($table, ['id' => $font_id], ['%d']);
             
             if ($deleted) {
@@ -188,7 +191,8 @@ class FotyteWordPressFontTester {
             global $wpdb;
             $table_name = $wpdb->prefix . 'fotyte_font_tester_fonts';
             
-            // Use wpdb->get_row with prepare - no direct SQL variable needed
+            // Direct database query necessary for custom table - no WordPress API alternative
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
             $font = $wpdb->get_row(
                 $wpdb->prepare(
                     "SELECT * FROM {$wpdb->prefix}fotyte_font_tester_fonts WHERE id = %d",
@@ -211,7 +215,8 @@ class FotyteWordPressFontTester {
             global $wpdb;
             $table_name = $wpdb->prefix . 'fotyte_font_tester_fonts';
             
-            // Use wpdb->get_results directly without SQL variable
+            // Direct database query necessary for custom table - no WordPress API alternative  
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
             $fonts = $wpdb->get_results(
                 "SELECT * FROM {$wpdb->prefix}fotyte_font_tester_fonts ORDER BY upload_date DESC",
                 ARRAY_A
