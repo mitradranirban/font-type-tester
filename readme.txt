@@ -5,7 +5,7 @@ Tags: fonts, font-tester, font-preview, typography-tools, static-fonts
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.10
+Stable tag: 1.1.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -105,6 +105,14 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 
 == Changelog ==
+= 1.1.11 =
+* Implemented custom font upload handler bypassing WordPress MIME restrictions
+* Added binary file signature validation for TTF, OTF, WOFF, and WOFF2 formats
+* Enhanced security with multi-layer file validation (extension + signature + size)
+* Improved error handling with specific error messages and file cleanup
+* Added upload success notifications with font name display
+* Increased maximum upload size from 5MB to 10MB
+
 = 1.1.10  =
 **Security & Code Quality Release**
 * SECURITY FIX: Properly sanitized file upload inputs to prevent potential security vulnerabilities

@@ -5,7 +5,7 @@
  * Description: A comprehensive font testing tool with real-time typography controls
  * submitter: mitradranirban
  * Author: mitradranirban
- * Version: 1.1.10
+ * Version: 1.1.11
  * License: GPL v2 or later
  * Text Domain: font-type-tester
  */
@@ -16,12 +16,13 @@ if (!defined('ABSPATH')) {
 
 class FotyteWordPressFontTester {
     
-    private $version = '1.1.10';
+    private $version = '1.1.11';
     
     public function __construct() {
         register_activation_hook(__FILE__, [$this, 'fotyte_on_activation']);
         register_deactivation_hook(__FILE__, [$this, 'fotyte_on_deactivation']);
-        
+        // Enable font uploads
+        add_filter('upload_mimes', [$this, 'fotyte_allow_font_uploads']);
         add_action('admin_menu', [$this, 'fotyte_add_admin_menu']);
         add_action('admin_enqueue_scripts', [$this, 'fotyte_enqueue_admin_scripts']);
         add_action('wp_enqueue_scripts', [$this, 'fotyte_enqueue_frontend_assets']);
@@ -68,7 +69,13 @@ class FotyteWordPressFontTester {
         
         wp_cache_flush();
     }
-    
+    public function fotyte_allow_font_uploads($mime_types) {
+        $mime_types['ttf'] = 'font/ttf';
+        $mime_types['otf'] = 'font/otf';
+        $mime_types['woff'] = 'font/woff';
+        $mime_types['woff2'] = 'font/woff2';
+        return $mime_types;
+    }
     public function fotyte_handle_font_upload() {
         // Security checks
         if (!current_user_can('manage_options')) {
@@ -80,68 +87,109 @@ class FotyteWordPressFontTester {
             wp_die(esc_html__('Invalid nonce', 'font-type-tester'));
         }
         
-        // Validate and sanitize file upload
-        if (!isset($_FILES['font_file']) || !is_array($_FILES['font_file'])) {
-            wp_die(esc_html__('No file uploaded', 'font-type-tester'));
+        // Validate file upload
+        if (!isset($_FILES['font_file']) || $_FILES['font_file']['error'] !== UPLOAD_ERR_OK) {
+            wp_die(esc_html__('No file uploaded or upload error occurred', 'font-type-tester'));
         }
         
-        // Properly sanitize file input
-        $font_file = array_map('sanitize_text_field', wp_unslash($_FILES['font_file']));
+        $font_file = $_FILES['font_file'];
         
-        // Validate file type
-        $allowed_mimes = [
-            'ttf' => 'font/ttf',
-            'otf' => 'font/otf', 
-            'woff' => 'font/woff',
-            'woff2' => 'font/woff2',
+        // Validate file extension (case insensitive)
+        $allowed_extensions = ['ttf', 'otf', 'woff', 'woff2'];
+        $file_extension = strtolower(pathinfo($font_file['name'], PATHINFO_EXTENSION));
+        
+        if (!in_array($file_extension, $allowed_extensions, true)) {
+            wp_die(esc_html__('Invalid font file type. Only TTF, OTF, WOFF, and WOFF2 files are allowed.', 'font-type-tester'));
+        }
+        
+        // Validate file size (limit to 10MB for fonts)
+        if ($font_file['size'] > 10 * 1024 * 1024) {
+            wp_die(esc_html__('File too large. Maximum size is 10MB.', 'font-type-tester'));
+        }
+        
+        // Additional security: Check if file is actually a font by reading first few bytes
+        $file_content = file_get_contents($font_file['tmp_name'], false, null, 0, 4);
+        $font_signatures = [
+            'ttf' => ["\x00\x01\x00\x00", "true"], // TTF signature
+            'otf' => ["OTTO"], // OTF signature  
+            'woff' => ["wOFF"], // WOFF signature
+            'woff2' => ["wOF2"] // WOFF2 signature
         ];
         
-        $filetype = wp_check_filetype(sanitize_file_name($font_file['name']), $allowed_mimes);
-        if (!$filetype['ext']) {
-            wp_die(esc_html__('Invalid font file type', 'font-type-tester'));
-        }
-        
-        // Use WordPress safe file upload with original $_FILES for wp_handle_upload
-        $upload_overrides = ['test_form' => false];
-        $movefile = wp_handle_upload($_FILES['font_file'], $upload_overrides);
-        
-        if ($movefile && !isset($movefile['error'])) {
-            // Sanitize additional inputs
-            $font_name = isset($_POST['font_name']) ? 
-                sanitize_text_field(wp_unslash($_POST['font_name'])) : '';
-            $original_filename = sanitize_file_name($font_file['name']);
-            $obfuscated_filename = basename($movefile['file']);
-            $file_path = esc_url_raw($movefile['url']);
-            
-            // Use WordPress built-in insert method instead of raw query
-            global $wpdb;
-            $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
-            
-            // Direct database call necessary for custom table - no WordPress API alternative
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-            $inserted = $wpdb->insert(
-                $table,
-                [
-                    'font_name' => $font_name,
-                    'original_filename' => $original_filename,
-                    'obfuscated_filename' => $obfuscated_filename,
-                    'file_path' => $file_path
-                ],
-                ['%s', '%s', '%s', '%s']
-            );
-            
-            if (false === $inserted) {
-                wp_die(esc_html__('Database error while saving font', 'font-type-tester'));
+        $is_valid_font = false;
+        foreach ($font_signatures[$file_extension] as $signature) {
+            if (strpos($file_content, $signature) === 0) {
+                $is_valid_font = true;
+                break;
             }
-            
-            // Invalidate cache
-            wp_cache_delete('fotyte_all_fonts', 'fotyte_fonts');
-            
-        } else {
-            wp_die(esc_html($movefile['error']));
         }
         
-        wp_redirect(admin_url('options-general.php?page=fotyte-font-type-tester'));
+        if (!$is_valid_font && $file_extension !== 'ttf') { // TTF has multiple possible signatures
+            wp_die(esc_html__('Invalid font file format.', 'font-type-tester'));
+        }
+        
+        // Create custom upload directory
+        $upload_dir = wp_upload_dir();
+        $font_dir = $upload_dir['basedir'] . '/font-tester/';
+        
+        if (!wp_mkdir_p($font_dir)) {
+            wp_die(esc_html__('Could not create upload directory.', 'font-type-tester'));
+        }
+        
+        // Generate safe filename
+        $original_filename = sanitize_file_name($font_file['name']);
+        $obfuscated_filename = wp_unique_filename($font_dir, $original_filename);
+        $target_path = $font_dir . $obfuscated_filename;
+        $file_url = $upload_dir['baseurl'] . '/font-tester/' . $obfuscated_filename;
+        
+        // Move uploaded file to our custom directory
+        if (!move_uploaded_file($font_file['tmp_name'], $target_path)) {
+            wp_die(esc_html__('Failed to move uploaded file.', 'font-type-tester'));
+        }
+        
+        // Set proper file permissions
+        chmod($target_path, 0644);
+        
+        // Get font name from form or use filename
+        $font_name = isset($_POST['font_name']) && !empty($_POST['font_name']) ? 
+            sanitize_text_field(wp_unslash($_POST['font_name'])) : 
+            pathinfo($original_filename, PATHINFO_FILENAME);
+        
+        // Save to database
+        global $wpdb;
+        $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
+        
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+        $inserted = $wpdb->insert(
+            $table,
+            [
+                'font_name' => $font_name,
+                'original_filename' => $original_filename,
+                'obfuscated_filename' => $obfuscated_filename,
+                'file_path' => $file_url
+            ],
+            ['%s', '%s', '%s', '%s']
+        );
+        
+        if (false === $inserted) {
+            // Clean up file if database insert fails
+            if (file_exists($target_path)) {
+                unlink($target_path);
+            }
+            wp_die(esc_html__('Database error while saving font information.', 'font-type-tester'));
+        }
+        
+        // Clear cache
+        wp_cache_delete('fotyte_all_fonts', 'fotyte_fonts');
+        
+        // Redirect with success message
+        $redirect_url = add_query_arg([
+            'page' => 'fotyte-font-type-tester',
+            'uploaded' => '1',
+            'font_name' => urlencode($font_name)
+        ], admin_url('options-general.php'));
+        
+        wp_redirect($redirect_url);
         exit;
     }
     
@@ -281,7 +329,16 @@ class FotyteWordPressFontTester {
         if (!current_user_can('manage_options')) {
             wp_die(esc_html__('Access denied', 'font-type-tester'));
         }
-        
+        if (isset($_GET['uploaded']) && $_GET['uploaded'] === '1') {
+            $font_name = isset($_GET['font_name']) ? sanitize_text_field(wp_unslash($_GET['font_name'])) : '';
+            echo '<div class="notice notice-success is-dismissible"><p>';
+            if ($font_name) {
+                printf(esc_html__('Font "%s" uploaded successfully!', 'font-type-tester'), esc_html($font_name));
+            } else {
+                esc_html_e('Font uploaded successfully!', 'font-type-tester');
+            }
+            echo '</p></div>';
+        }
         $fonts = $this->fotyte_get_fonts();
         ?>
         <div class="wrap">
@@ -345,29 +402,427 @@ class FotyteWordPressFontTester {
         $fonts = $this->fotyte_get_fonts();
         
         if (empty($fonts)) {
-            return '<p>' . esc_html__('No fonts available for testing.', 'font-type-tester') . '</p>';
+            return '<div class="fotyte-no-fonts"><p>' . esc_html__('No fonts available for testing. Please upload fonts from the admin panel.', 'font-type-tester') . '</p></div>';
         }
         
-        // Shortcode output would go here...
-        return '<div id="fotyte-font-tester">Font tester interface</div>';
+        ob_start();
+        ?>
+        <div id="fotyte-font-tester" class="fotyte-font-tester-container">
+            <!-- Font Selection -->
+            <div class="fotyte-control-group">
+                <label for="fotyte-font-select"><?php esc_html_e('Select Font:', 'font-type-tester'); ?></label>
+                <select id="fotyte-font-select" class="fotyte-font-select">
+                    <option value=""><?php esc_html_e('Choose a font...', 'font-type-tester'); ?></option>
+                    <?php foreach ($fonts as $font): ?>
+                        <option value="<?php echo esc_attr($font['id']); ?>" 
+                                data-font-url="<?php echo esc_url($font['file_path']); ?>"
+                                data-font-name="<?php echo esc_attr($font['font_name']); ?>">
+                            <?php echo esc_html($font['font_name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <!-- Typography Controls -->
+            <div class="fotyte-controls-row">
+                <div class="fotyte-control-group">
+                    <label for="fotyte-font-size"><?php esc_html_e('Font Size:', 'font-type-tester'); ?> <span id="fotyte-size-display">18px</span></label>
+                    <input type="range" id="fotyte-font-size" class="fotyte-slider" min="8" max="120" value="18" step="1">
+                </div>
+                
+                <div class="fotyte-control-group">
+                    <label for="fotyte-line-height"><?php esc_html_e('Line Height:', 'font-type-tester'); ?> <span id="fotyte-line-display">1.4</span></label>
+                    <input type="range" id="fotyte-line-height" class="fotyte-slider" min="0.8" max="3" value="1.4" step="0.1">
+                </div>
+                
+                <div class="fotyte-control-group">
+                    <label for="fotyte-letter-spacing"><?php esc_html_e('Letter Spacing:', 'font-type-tester'); ?> <span id="fotyte-spacing-display">0px</span></label>
+                    <input type="range" id="fotyte-letter-spacing" class="fotyte-slider" min="-5" max="10" value="0" step="0.1">
+                </div>
+            </div>
+            
+            <!-- Font Weight & Style Controls -->
+            <div class="fotyte-controls-row">
+                <div class="fotyte-control-group">
+                    <label for="fotyte-font-weight"><?php esc_html_e('Font Weight:', 'font-type-tester'); ?></label>
+                    <select id="fotyte-font-weight" class="fotyte-select">
+                        <option value="100">100 - Thin</option>
+                        <option value="200">200 - Extra Light</option>
+                        <option value="300">300 - Light</option>
+                        <option value="400" selected>400 - Normal</option>
+                        <option value="500">500 - Medium</option>
+                        <option value="600">600 - Semi Bold</option>
+                        <option value="700">700 - Bold</option>
+                        <option value="800">800 - Extra Bold</option>
+                        <option value="900">900 - Black</option>
+                    </select>
+                </div>
+                
+                <div class="fotyte-control-group">
+                    <label for="fotyte-font-style"><?php esc_html_e('Font Style:', 'font-type-tester'); ?></label>
+                    <select id="fotyte-font-style" class="fotyte-select">
+                        <option value="normal" selected><?php esc_html_e('Normal', 'font-type-tester'); ?></option>
+                        <option value="italic"><?php esc_html_e('Italic', 'font-type-tester'); ?></option>
+                        <option value="oblique"><?php esc_html_e('Oblique', 'font-type-tester'); ?></option>
+                    </select>
+                </div>
+                
+                <div class="fotyte-control-group">
+                    <label for="fotyte-text-transform"><?php esc_html_e('Text Transform:', 'font-type-tester'); ?></label>
+                    <select id="fotyte-text-transform" class="fotyte-select">
+                        <option value="none" selected><?php esc_html_e('None', 'font-type-tester'); ?></option>
+                        <option value="uppercase"><?php esc_html_e('Uppercase', 'font-type-tester'); ?></option>
+                        <option value="lowercase"><?php esc_html_e('Lowercase', 'font-type-tester'); ?></option>
+                        <option value="capitalize"><?php esc_html_e('Capitalize', 'font-type-tester'); ?></option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Color Controls -->
+            <div class="fotyte-controls-row">
+                <div class="fotyte-control-group">
+                    <label for="fotyte-text-color"><?php esc_html_e('Text Color:', 'font-type-tester'); ?></label>
+                    <input type="color" id="fotyte-text-color" class="fotyte-color-picker" value="#333333">
+                </div>
+                
+                <div class="fotyte-control-group">
+                    <label for="fotyte-bg-color"><?php esc_html_e('Background Color:', 'font-type-tester'); ?></label>
+                    <input type="color" id="fotyte-bg-color" class="fotyte-color-picker" value="#ffffff">
+                </div>
+            </div>
+            
+            <!-- Sample Text Input -->
+            <div class="fotyte-control-group fotyte-full-width">
+                <label for="fotyte-sample-text"><?php esc_html_e('Sample Text:', 'font-type-tester'); ?></label>
+                <textarea id="fotyte-sample-text" class="fotyte-textarea" rows="3" placeholder="<?php esc_attr_e('Type your text here...', 'font-type-tester'); ?>">The quick brown fox jumps over the lazy dog. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 1234567890 !@#$%^&amp;*()_+-=[]{}|;:&quot;,./&lt;&gt;?</textarea>
+            </div>
+            
+            <!-- Preview Area -->
+            <div class="fotyte-preview-area">
+                <h3><?php esc_html_e('Font Preview:', 'font-type-tester'); ?></h3>
+                <div id="fotyte-preview" class="fotyte-preview-text">
+                    <?php esc_html_e('Please select a font to see the preview.', 'font-type-tester'); ?>
+                </div>
+            </div>
+            
+            <!-- Preset Text Samples -->
+            <div class="fotyte-presets">
+                <h4><?php esc_html_e('Quick Text Samples:', 'font-type-tester'); ?></h4>
+                <div class="fotyte-preset-buttons">
+                    <button type="button" class="fotyte-preset-btn" data-text="The quick brown fox jumps over the lazy dog."><?php esc_html_e('Pangram', 'font-type-tester'); ?></button>
+                    <button type="button" class="fotyte-preset-btn" data-text="ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"><?php esc_html_e('Alphabet', 'font-type-tester'); ?></button>
+                    <button type="button" class="fotyte-preset-btn" data-text="1234567890 !@#$%^&*()_+-=[]{}|;:&quot;,./&lt;&gt;?"><?php esc_html_e('Numbers & Symbols', 'font-type-tester'); ?></button>
+                    <button type="button" class="fotyte-preset-btn" data-text="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."><?php esc_html_e('Lorem Ipsum', 'font-type-tester'); ?></button>
+                </div>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
     }
     
-    // CSS and JS methods would remain the same...
-    private function fotyte_get_admin_css() {
-        return '/* Admin CSS */';
-    }
-    
-    private function fotyte_get_admin_js() {
-        return '/* Admin JS */';
-    }
-    
-    private function fotyte_get_frontend_css() {
-        return '/* Frontend CSS */';
+    /private function fotyte_get_frontend_css() {
+        return '
+        .fotyte-font-tester-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+            font-family: Arial, sans-serif;
+        }
+        
+        .fotyte-control-group {
+            margin-bottom: 15px;
+        }
+        
+        .fotyte-control-group.fotyte-full-width {
+            width: 100%;
+        }
+        
+        .fotyte-control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .fotyte-controls-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .fotyte-controls-row .fotyte-control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .fotyte-font-select,
+        .fotyte-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+        }
+        
+        .fotyte-slider {
+            width: 100%;
+            margin: 5px 0;
+        }
+        
+        .fotyte-color-picker {
+            width: 50px;
+            height: 35px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .fotyte-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .fotyte-preview-area {
+            margin: 30px 0;
+            padding: 20px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .fotyte-preview-area h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 18px;
+        }
+        
+        .fotyte-preview-text {
+            min-height: 100px;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            background: #fafafa;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        .fotyte-presets {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .fotyte-presets h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .fotyte-preset-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .fotyte-preset-btn {
+            padding: 8px 12px;
+            border: 1px solid #0073aa;
+            background: #0073aa;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        
+        .fotyte-preset-btn:hover {
+            background: #005a87;
+            border-color: #005a87;
+        }
+        
+        .fotyte-no-fonts {
+            text-align: center;
+            padding: 40px 20px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .fotyte-controls-row {
+                flex-direction: column;
+            }
+            
+            .fotyte-controls-row .fotyte-control-group {
+                min-width: auto;
+            }
+            
+            .fotyte-preset-buttons {
+                flex-direction: column;
+            }
+            
+            .fotyte-preset-btn {
+                width: 100%;
+            }
+        }
+        ';
     }
     
     private function fotyte_get_frontend_js() {
-        return '/* Frontend JS */';
+        return '
+        jQuery(document).ready(function($) {
+            var currentFontFamily = "";
+            var loadedFonts = {};
+            
+            // Load font dynamically
+            function loadFont(fontUrl, fontName, fontId) {
+                if (loadedFonts[fontId]) {
+                    return;
+                }
+                
+                var fontFace = new FontFace(fontName, "url(" + fontUrl + ")");
+                fontFace.load().then(function(loadedFont) {
+                    document.fonts.add(loadedFont);
+                    loadedFonts[fontId] = true;
+                    updatePreview();
+                }).catch(function(error) {
+                    console.error("Font loading failed:", error);
+                    alert("Failed to load font. Please check the font file.");
+                });
+            }
+            
+            // Update preview text with current settings
+            function updatePreview() {
+                var preview = $("#fotyte-preview");
+                var sampleText = $("#fotyte-sample-text").val() || "Please select a font and enter some text.";
+                
+                preview.html(sampleText.replace(/\\n/g, "<br>"));
+                
+                if (currentFontFamily) {
+                    var styles = {
+                        "font-family": currentFontFamily + ", Arial, sans-serif",
+                        "font-size": $("#fotyte-font-size").val() + "px",
+                        "line-height": $("#fotyte-line-height").val(),
+                        "letter-spacing": $("#fotyte-letter-spacing").val() + "px",
+                        "font-weight": $("#fotyte-font-weight").val(),
+                        "font-style": $("#fotyte-font-style").val(),
+                        "text-transform": $("#fotyte-text-transform").val(),
+                        "color": $("#fotyte-text-color").val(),
+                        "background-color": $("#fotyte-bg-color").val()
+                    };
+                    
+                    preview.css(styles);
+                }
+            }
+            
+            // Update display values for sliders
+            function updateSliderDisplays() {
+                $("#fotyte-size-display").text($("#fotyte-font-size").val() + "px");
+                $("#fotyte-line-display").text($("#fotyte-line-height").val());
+                $("#fotyte-spacing-display").text($("#fotyte-letter-spacing").val() + "px");
+            }
+            
+            // Font selection change
+            $("#fotyte-font-select").change(function() {
+                var selectedOption = $(this).find("option:selected");
+                var fontUrl = selectedOption.data("font-url");
+                var fontName = selectedOption.data("font-name");
+                var fontId = selectedOption.val();
+                
+                if (fontUrl && fontName && fontId) {
+                    currentFontFamily = fontName;
+                    loadFont(fontUrl, fontName, fontId);
+                } else {
+                    currentFontFamily = "";
+                    updatePreview();
+                }
+            });
+            
+            // Slider changes
+            $(".fotyte-slider").on("input", function() {
+                updateSliderDisplays();
+                updatePreview();
+            });
+            
+            // Select changes
+            $(".fotyte-select, .fotyte-color-picker").change(function() {
+                updatePreview();
+            });
+            
+            // Sample text changes
+            $("#fotyte-sample-text").on("input", function() {
+                updatePreview();
+            });
+            
+            // Preset buttons
+            $(".fotyte-preset-btn").click(function() {
+                var presetText = $(this).data("text");
+                $("#fotyte-sample-text").val(presetText);
+                updatePreview();
+            });
+            
+            // Initialize displays
+            updateSliderDisplays();
+            updatePreview();
+        });
+        ';
     }
+    
+    private function fotyte_get_admin_css() {
+        return '
+        .fotyte-admin-container {
+            max-width: 800px;
+        }
+        
+        .fotyte-admin-container .form-table th {
+            width: 150px;
+        }
+        
+        .fotyte-admin-container .notice {
+            margin: 10px 0;
+        }
+        
+        .wp-list-table.fotyte-fonts-table {
+            margin-top: 20px;
+        }
+        
+        .fotyte-usage-info {
+            background: #f1f1f1;
+            padding: 15px;
+            border-left: 4px solid #0073aa;
+            margin: 20px 0;
+        }
+        
+        .fotyte-usage-info code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        ';
+    }
+    
+    private function fotyte_get_admin_js() {
+        return '
+        jQuery(document).ready(function($) {
+            // Add any admin-specific JavaScript here
+            console.log("Font Tester Admin loaded");
+        });
+        ';
+    }
+    
 }
 
 new FotyteWordPressFontTester();
