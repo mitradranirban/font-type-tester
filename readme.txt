@@ -5,7 +5,7 @@ Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools,
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.6
+Stable tag: 1.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -106,13 +106,14 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 == Changelog ==
 = 1.1.7 =
-* Resolved Missing Version warnings by specifying versions in all `wp_register_script()` and `wp_register_style()` calls
-* Added object caching (`wp_cache_get()` / `wp_cache_set()`) for all SELECT queries to reduce DB load
-* Properly invalidated cache on insert and delete operations via `wp_cache_delete()`
-* Sanitized and validated all `$_POST` and `$_FILES` inputs using `wp_unslash()`, `sanitize_text_field()`, `isset()` checks
-* Replaced `rename()` with WordPress-native `$wp_filesystem->move()` function
-* Removed heredoc/nowdoc syntax and injected dynamic JavaScript using concatenated strings
-* Finalized consistent use of `fotyte_` prefix across all functions, actions, shortcodes, script handles, and localization keys
+* Fixed database queries to use `$wpdb->prepare()` — no raw variable interpolation
+* Improved sanitization and validation for `$_POST['font_name']` using `isset()` and `wp_unslash()`
+* Validated and sanitized `$_FILES['font_file']` input properly
+* Replaced `rename()` with `$wp_filesystem->move()` per WPCoding standards
+* Added `version` to all uses of `wp_register_style()` and `wp_register_script()` to fix browser cache busting
+* Added object caching (`wp_cache_get`, `wp_cache_set`) to SELECT queries
+* Invalidated caches on insert/delete using `wp_cache_delete()`
+* Retained backwards-compatible shortcode: `[fotyte_font_tester]`
 
 = 1.1.6 =
 * Residual use of heredoc syntax cleaned

@@ -130,50 +130,61 @@ class fotyte_FontTypeTester {
 
     public function fotyte_upload_font() {
         check_ajax_referer('fotyte_font_tester_nonce', 'nonce');
-        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-
+    
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+    
         if (!isset($_FILES['font_file']) || empty($_FILES['font_file']['name'])) {
-            wp_send_json_error('No file uploaded');
+            wp_send_json_error('No font file uploaded');
         }
-
+    
         $file = $_FILES['font_file'];
-        $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    
+        // Validate extension
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         $allowed = ['ttf', 'otf', 'woff', 'woff2'];
-        if (!in_array($file_ext, $allowed)) {
-            wp_send_json_error('Invalid font file type');
+        if (!in_array($ext, $allowed)) {
+            wp_send_json_error('Invalid file type');
         }
-
+    
+        // Upload via WP function
+        $uploaded = wp_handle_upload($file, ['test_form' => false]);
+        if (!empty($uploaded['error'])) {
+            wp_send_json_error($uploaded['error']);
+        }
+    
         $upload_dir = wp_upload_dir();
-        $target_dir = $upload_dir['basedir'] . '/font-tester/';
-        $obfuscated = 'fotyte_' . wp_generate_password(12, false) . '.' . $file_ext;
-        $target_path = $target_dir . $obfuscated;
-
-        $movefile = wp_handle_upload($file, ['test_form' => false]);
-        if (!empty($movefile['error'])) wp_send_json_error($movefile['error']);
-
+        $font_dir  = $upload_dir['basedir'] . '/font-tester/';
+        $obfuscated_name = 'fotyte_' . wp_generate_password(12, false) . '.' . $ext;
+        $target_path = $font_dir . $obfuscated_name;
+    
+        // Use the WP Filesystem API
         global $wp_filesystem;
         require_once ABSPATH . 'wp-admin/includes/file.php';
         WP_Filesystem();
-        if (!$wp_filesystem->move($movefile['file'], $target_path, true)) {
-            wp_send_json_error('Failed to move file');
+        if (!$wp_filesystem->move($uploaded['file'], $target_path, true)) {
+            wp_send_json_error('Could not move file');
         }
-
-        $font_name = isset($_POST['font_name']) && $_POST['font_name']
-            ? sanitize_text_field(wp_unslash($_POST['font_name']))
-            : pathinfo($file['name'], PATHINFO_FILENAME);
-
+    
+        $font_name = !empty($_POST['font_name']) ? sanitize_text_field(wp_unslash($_POST['font_name'])) : pathinfo($file['name'], PATHINFO_FILENAME);
+    
         global $wpdb;
-        $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
-        $wpdb->insert($table, [
+        $result = $wpdb->insert("{$wpdb->prefix}fotyte_font_tester_fonts", [
             'font_name' => $font_name,
             'original_filename' => $file['name'],
-            'obfuscated_filename' => $obfuscated,
+            'obfuscated_filename' => $obfuscated_name,
             'file_path' => $target_path
         ]);
+    
+        if (!$result) {
+            wp_send_json_error('DB insert failed');
+        }
+    
         wp_cache_delete('fotyte_all_fonts', 'fotyte_font_tester');
-
         wp_send_json_success(['font_name' => $font_name]);
     }
+    
 
     public function fotyte_delete_font() {
         check_ajax_referer('fotyte_font_tester_nonce', 'nonce');
@@ -198,19 +209,25 @@ class fotyte_FontTypeTester {
     }
 
     private function fotyte_get_fonts() {
-        global $wpdb;
         $cache = wp_cache_get('fotyte_all_fonts', 'fotyte_font_tester');
-        if ($cache !== false) return $cache;
-
+        if ($cache !== false) {
+            return $cache;
+        }
+    
+        global $wpdb;
         $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
-        $fonts = $wpdb->get_results("SELECT * FROM $table ORDER BY upload_date DESC");
+        $query = $wpdb->prepare("SELECT * FROM {$table} WHERE 1=1 ORDER BY upload_date DESC");
+        $fonts = $wpdb->get_results($query);
+    
         $url_base = wp_upload_dir()['baseurl'] . '/font-tester/';
         foreach ($fonts as $font) {
             $font->url = $url_base . $font->obfuscated_filename;
         }
+    
         wp_cache_set('fotyte_all_fonts', $fonts, 'fotyte_font_tester', HOUR_IN_SECONDS);
         return $fonts;
     }
+    
 
     private function fotyte_get_frontend_css() {
         return '#fotyte-font-preview{padding:20px;border:1px dashed #ccc;background:#f9f9f9;}';
