@@ -5,7 +5,7 @@
  * Description: A comprehensive font testing tool with real-time typography controls
  * submitter: mitradranirban
  * Author: mitradranirban
- * Version: 1.1.9
+ * Version: 1.1.10
  * License: GPL v2 or later
  * Text Domain: font-type-tester
  */
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 
 class FotyteWordPressFontTester {
     
-    private $version = '1.1.9';
+    private $version = '1.1.10';
     
     public function __construct() {
         register_activation_hook(__FILE__, [$this, 'fotyte_on_activation']);
