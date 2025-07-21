@@ -5,9 +5,9 @@ Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools,
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.9
-License: GPLv2 or later
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Stable tag: 1.1.10
+License: GPLv3 or later
+License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
 A comprehensive font testing tool with real-time typography controls and font source obfuscation for secure font preview.
 
@@ -105,6 +105,16 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 
 == Changelog ==
+= 1.1.10  =
+**Security & Code Quality Release**
+* SECURITY FIX: Properly sanitized file upload inputs to prevent potential security vulnerabilities
+* SECURITY FIX: Eliminated unprepared SQL statements and improved database query security
+* SECURITY FIX: Removed intermediate SQL variables that could pose security risks
+* CODE QUALITY: Updated database queries to follow WordPress coding standards (PHPCS compliance)
+* CODE QUALITY: Improved prepared statement handling for better security practices
+* PERFORMANCE: Maintained existing caching functionality while improving query security
+* COMPATIBILITY: No breaking changes - fully backward compatible with previous versions
+
 = 1.1.9 =
 * **SECURITY UPDATE**: Fixed all WordPress Coding Standards warnings and security vulnerabilities
 * Implemented proper input sanitization for $_FILES['font_file'] using wp_check_filetype() and wp_handle_upload()

@@ -5,7 +5,8 @@
  * Description: A comprehensive font testing tool with real-time typography controls
  * submitter: mitradranirban
  * Author: mitradranirban
- * Version 1.1.9
+ * Version: 1.1.10
+ * License: GPL v3 or later
  * Text Domain: font-type-tester
  */
 
@@ -84,7 +85,8 @@ class FotyteWordPressFontTester {
             wp_die(esc_html__('No file uploaded', 'font-type-tester'));
         }
         
-        $font_file = $_FILES['font_file'];
+        // Properly sanitize file input
+        $font_file = array_map('sanitize_text_field', wp_unslash($_FILES['font_file']));
         
         // Validate file type
         $allowed_mimes = [
@@ -99,9 +101,9 @@ class FotyteWordPressFontTester {
             wp_die(esc_html__('Invalid font file type', 'font-type-tester'));
         }
         
-        // Use WordPress safe file upload
+        // Use WordPress safe file upload with original $_FILES for wp_handle_upload
         $upload_overrides = ['test_form' => false];
-        $movefile = wp_handle_upload($font_file, $upload_overrides);
+        $movefile = wp_handle_upload($_FILES['font_file'], $upload_overrides);
         
         if ($movefile && !isset($movefile['error'])) {
             // Sanitize additional inputs
@@ -184,11 +186,16 @@ class FotyteWordPressFontTester {
         
         if (false === $font) {
             global $wpdb;
-            $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
+            $table_name = $wpdb->prefix . 'fotyte_font_tester_fonts';
             
-            // Use prepared statement with backticks for table name
-            $sql = $wpdb->prepare("SELECT * FROM `{$table}` WHERE id = %d", $font_id);
-            $font = $wpdb->get_row($sql, ARRAY_A);
+            // Use wpdb->get_row with prepare - no direct SQL variable needed
+            $font = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT * FROM {$wpdb->prefix}fotyte_font_tester_fonts WHERE id = %d",
+                    $font_id
+                ),
+                ARRAY_A
+            );
             
             wp_cache_set($cache_key, $font, 'fotyte_fonts', 3600);
         }
@@ -202,11 +209,13 @@ class FotyteWordPressFontTester {
         
         if (false === $fonts) {
             global $wpdb;
-            $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
+            $table_name = $wpdb->prefix . 'fotyte_font_tester_fonts';
             
-            // Use backticks for table name in prepared statement
-            $sql = "SELECT * FROM `{$table}` ORDER BY upload_date DESC";
-            $fonts = $wpdb->get_results($sql, ARRAY_A);
+            // Use wpdb->get_results directly without SQL variable
+            $fonts = $wpdb->get_results(
+                "SELECT * FROM {$wpdb->prefix}fotyte_font_tester_fonts ORDER BY upload_date DESC",
+                ARRAY_A
+            );
             
             wp_cache_set($cache_key, $fonts, 'fotyte_fonts', 3600);
         }
