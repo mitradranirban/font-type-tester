@@ -6,7 +6,7 @@
  * submitter: mitradranirban
  * Author: mitradranirban
  * Version: 1.1.9
- * License: GPL v3 or later
+ * License: GPL v2 or later
  * Text Domain: font-type-tester
  */
 
