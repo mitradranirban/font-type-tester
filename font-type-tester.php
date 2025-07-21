@@ -3,7 +3,7 @@
  * Plugin Name: Font Type Tester
  * Plugin URI: https://github.com/mitradranirban/font-type-tester
  * Description: A comprehensive font testing tool with admin interface for font management.
- * Version: 1.1.5
+ * Version: 1.1.6
  * Author: Anirban Mitra
  * License: GPL v2 or later
  */
@@ -243,7 +243,7 @@ form#fotyte-font-upload-form input[type="file"] { display: block; margin: 5px 0;
     }
 
     private function fotyte_get_frontend_js() {
-        return '
+       return <<<JS
 jQuery(document).ready(function($) {
     $("#fotyte-font-selector").on("change", function() {
         const fontUrl = $(this).val();
@@ -253,7 +253,8 @@ jQuery(document).ready(function($) {
             return;
         }
         const id = "fotyte-font-" + Date.now();
-        $("<style>").attr("id", id).text("@font-face{font-family:\'"+id+"\';src:url(\'"+fontUrl+"\');}").appendTo("head");
+        const fontFace = "@font-face{font-family:'" + id + "';src:url('" + fontUrl + "');}";
+        $("<style>").attr("id", id).text(fontFace).appendTo("head");
         $("#fotyte-font-preview").css("font-family", "'" + id + "', sans-serif").text($("#fotyte-sample-text").val());
     });
 
@@ -261,7 +262,7 @@ jQuery(document).ready(function($) {
         $("#fotyte-font-preview").text($(this).val());
     });
 });
-        ';
+JS;
     }
 
     private function fotyte_get_admin_js() {
