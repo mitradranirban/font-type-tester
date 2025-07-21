@@ -105,21 +105,23 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 
 == Changelog ==
+= 1.1.7 =
+* Resolved Missing Version warnings by specifying versions in all `wp_register_script()` and `wp_register_style()` calls
+* Added object caching (`wp_cache_get()` / `wp_cache_set()`) for all SELECT queries to reduce DB load
+* Properly invalidated cache on insert and delete operations via `wp_cache_delete()`
+* Sanitized and validated all `$_POST` and `$_FILES` inputs using `wp_unslash()`, `sanitize_text_field()`, `isset()` checks
+* Replaced `rename()` with WordPress-native `$wp_filesystem->move()` function
+* Removed heredoc/nowdoc syntax and injected dynamic JavaScript using concatenated strings
+* Finalized consistent use of `fotyte_` prefix across all functions, actions, shortcodes, script handles, and localization keys
+
 = 1.1.6 =
-* The heredoc string (<<<JS ... JS;) used to embed multiline text (like JavaScript) without worrying about escaping quotes. 
+* Residual use of heredoc syntax cleaned
+
 = 1.1.5 =
-* Fully prefixed all functions, actions, shortcodes, and script handles with `fotyte_` to comply with WP best practices
-* Updated JavaScript global variables to use `fotyteFontTester` and `fotyteFontTesterAdmin`
-* Changed shortcode from `[font_tester]` to `[fotyte_font_tester]`
-* Removed direct file writes (`file_put_contents`) to plugin directory — now uses `wp_add_inline_style` and `wp_add_inline_script`
-* Enqueued CSS/JS assets safely as inline scripts and styles
-* Improved compatibility with multisite and repository submission requirements
-* Fixed inconsistent naming across hook registration and handlers
+* Fully prefixed all functions, actions, shortcodes, and handles with `fotyte_`
 
 = 1.1.4 =
-* Improved JS/CSS injection using inline functions
-* Moved dynamic style and script content out of filesystem
-* Refined upload security and moved font handling fully to `wp-content/uploads/`
+* Switched from writing JS/CSS files to using `wp_add_inline_style` and `wp_add_inline_script`
 
 = 1.1.3 =
 * Prepend function names with unique characters fotyte_ 
