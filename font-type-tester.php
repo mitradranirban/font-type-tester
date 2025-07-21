@@ -3,7 +3,7 @@
  * Plugin Name: Font Type Tester
  * Plugin URI: https://github.com/mitradranirban/font-type-tester
  * Description: A comprehensive font testing tool with admin interface for font management
- * Version: 1.1.3
+ * Version: 1.1.4
  * Author: Anirban Mitra
  * License: GPL v2 or later
  */
@@ -24,6 +24,7 @@ class fotyte_FontTypeTester {
 
         add_action('init', array($this, 'fotyte_init'));
         add_action('wp_enqueue_scripts', array($this, 'fotyte_enqueue_scripts'));
+        add_action('wp_enqueue_scripts', array($this, 'fotyte_add_dynamic_styles'), 20);
         add_action('admin_enqueue_scripts', array($this, 'fotyte_enqueue_admin_scripts'));
         add_action('admin_menu', array($this, 'fotyte_add_admin_menu'));
         add_action('wp_ajax_upload_font', array($this, 'fotyte_handle_font_upload'));
@@ -62,6 +63,9 @@ class fotyte_FontTypeTester {
 
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
+
+        // Create the external files
+        $this->fotyte_create_external_files();
     }
 
     public function fotyte_deactivate() {
@@ -92,14 +96,51 @@ class fotyte_FontTypeTester {
     }
 
     public function fotyte_enqueue_scripts() {
-        wp_enqueue_script('font-tester-js', $this->plugin_url . 'font-tester.js', array('jquery'), '1.1.0', true);
-        wp_enqueue_style('font-tester-css', $this->plugin_url . 'font-tester.css', array(), '1.1.0');
+        // Register scripts and styles first
+        wp_register_script(
+            'font-tester-js',
+            $this->plugin_url . 'font-tester.js',
+            array('jquery'),
+            '1.1.4',
+            array(
+                'in_footer' => true,
+                'strategy' => 'defer'
+            )
+        );
+        
+        wp_register_style(
+            'font-tester-css',
+            $this->plugin_url . 'font-tester.css',
+            array(),
+            '1.1.4'
+        );
 
-        wp_localize_script('font-tester-js', 'fontTester', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('font_tester_nonce'),
-            'plugin_url' => $this->plugin_url
-        ));
+        // Only enqueue on pages with the shortcode
+        global $post;
+        if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'font_tester')) {
+            wp_enqueue_script('font-tester-js');
+            wp_enqueue_style('font-tester-css');
+            
+            wp_localize_script('font-tester-js', 'fontTester', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('font_tester_nonce'),
+                'plugin_url' => $this->plugin_url
+            ));
+        }
+    }
+
+    public function fotyte_add_dynamic_styles() {
+        if (is_admin()) return;
+        
+        // Only add if shortcode is present on the page
+        global $post;
+        if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'font_tester')) {
+            wp_add_inline_style('font-tester-css', '
+                /* Dynamic font styles will be injected here via JavaScript */
+                #font-preview { transition: all 0.3s ease; }
+                .font-face-dynamic { font-display: swap; }
+            ');
+        }
     }
 
     public function fotyte_enqueue_admin_scripts($hook) {
@@ -107,8 +148,23 @@ class fotyte_FontTypeTester {
             return;
         }
 
-        wp_enqueue_script('font-tester-admin-js', $this->plugin_url . 'font-tester-admin.js', array('jquery'), '1.1.0', true);
-        wp_enqueue_style('font-tester-admin-css', $this->plugin_url . 'font-tester-admin.css', array(), '1.1.0');
+        wp_register_script(
+            'font-tester-admin-js',
+            $this->plugin_url . 'font-tester-admin.js',
+            array('jquery'),
+            '1.1.4',
+            array('in_footer' => true)
+        );
+        
+        wp_register_style(
+            'font-tester-admin-css',
+            $this->plugin_url . 'font-tester-admin.css',
+            array(),
+            '1.1.4'
+        );
+        
+        wp_enqueue_script('font-tester-admin-js');
+        wp_enqueue_style('font-tester-admin-css');
 
         wp_localize_script('font-tester-admin-js', 'fontTesterAdmin', array(
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -228,6 +284,7 @@ class fotyte_FontTypeTester {
             wp_send_json_error('File upload error');
         }
 
+        // Validate file type
         $allowed_types = array('ttf', 'otf', 'woff', 'woff2');
         $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
@@ -425,6 +482,10 @@ class fotyte_FontTypeTester {
     public function fotyte_render_font_tester($atts) {
         $fonts = $this->fotyte_get_uploaded_fonts();
 
+        // Enqueue styles and scripts when shortcode is used
+        wp_enqueue_script('font-tester-js');
+        wp_enqueue_style('font-tester-css');
+
         ob_start();
         ?>
         <div id="font-tester-container">
@@ -473,7 +534,7 @@ class fotyte_FontTypeTester {
                 </div>
                 <div class="control-section">
                     <h3>Sample Text</h3>
-                    <textarea id="sample-text" rows="4" cols="50">The quick brown fox jumps over the lazy dog. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 1234567890 !@#$%^&*()_+-=[]{}|[...]</textarea>
+                    <textarea id="sample-text" rows="4" cols="50">The quick brown fox jumps over the lazy dog. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 1234567890 !@#$%^&*()_+-=[]{}|;':\",./<>?</textarea>
                 </div>
                 <div class="control-section">
                     <h3>Font Information</h3>
@@ -484,61 +545,27 @@ class fotyte_FontTypeTester {
                 </div>
             </div>
         </div>
-        <style id="dynamic-font-styles"></style>
         <?php
         return ob_get_clean();
     }
-}
 
-// Initialize the plugin
-new fotyte_FontTypeTester();
+    private function fotyte_create_external_files() {
+        $plugin_dir = plugin_dir_path(__FILE__);
 
-// Admin CSS Styles (save as font-tester-admin.css in the same directory)
-if (!function_exists('fotyte_font_tester_admin_css_content')) {
-    function fotyte_font_tester_admin_css_content() {
-        return '
-.font-tester-admin .card {
-    margin-bottom: 20px;
-}
-.font-tester-admin .card h2 {
-    margin-top: 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #ccd0d4;
-}
-.font-tester-admin .form-table th {
-    width: 150px;
-}
-.font-tester-admin .delete-font {
-    color: #a00;
-    border-color: #a00;
-}
-.font-tester-admin .delete-font:hover {
-    background: #a00;
-    color: white;
-}
-.font-tester-admin .loading {
-    opacity: 0.6;
-    pointer-events: none;
-}
-#fonts-list .wp-list-table {
-    margin-top: 10px;
-}
-#fonts-list .wp-list-table th,
-#fonts-list .wp-list-table td {
-    padding: 8px 10px;
-}
-.font-tester-admin code {
-    background: #f1f1f1;
-    padding: 2px 4px;
-    border-radius: 3px;
-}
-        ';
+        // Create front-end CSS file
+        file_put_contents($plugin_dir . 'font-tester.css', $this->fotyte_get_frontend_css());
+
+        // Create front-end JS file
+        file_put_contents($plugin_dir . 'font-tester.js', $this->fotyte_get_frontend_js());
+
+        // Create admin CSS file
+        file_put_contents($plugin_dir . 'font-tester-admin.css', $this->fotyte_get_admin_css());
+
+        // Create admin JS file
+        file_put_contents($plugin_dir . 'font-tester-admin.js', $this->fotyte_get_admin_js());
     }
-}
 
-// Front-end CSS Styles (save as font-tester.css in the same directory)
-if (!function_exists('fotyte_font_tester_css_content')) {
-    function fotyte_font_tester_css_content() {
+    private function fotyte_get_frontend_css() {
         return '
 #font-tester-container {
     max-width: 1200px;
@@ -614,6 +641,7 @@ input[type="range"]::-moz-range-thumb {
     padding: 30px;
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
 }
 .font-preview-area h3 {
     margin-top: 0;
@@ -632,6 +660,7 @@ input[type="range"]::-moz-range-thumb {
     margin: 0;
     word-wrap: break-word;
     line-height: 1.4;
+    transition: all 0.3s ease;
 }
 #font-info {
     background: #f8f9fa;
@@ -655,40 +684,248 @@ input[type="range"]::-moz-range-thumb {
 }
         ';
     }
-}
 
-// Admin JavaScript (save as font-tester-admin.js in the same directory)
-if (!function_exists('fotyte_font_tester_admin_js_content')) {
-    function fotyte_font_tester_admin_js_content() {
-        return "
-// ... (leave JS content as is, or prepend JS function names if desired)
-        ";
+    private function fotyte_get_admin_css() {
+        return '
+.font-tester-admin .card {
+    margin-bottom: 20px;
+}
+.font-tester-admin .card h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ccd0d4;
+}
+.font-tester-admin .form-table th {
+    width: 150px;
+}
+.font-tester-admin .delete-font {
+    color: #a00;
+    border-color: #a00;
+}
+.font-tester-admin .delete-font:hover {
+    background: #a00;
+    color: white;
+}
+.font-tester-admin .loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+#fonts-list .wp-list-table {
+    margin-top: 10px;
+}
+#fonts-list .wp-list-table th,
+#fonts-list .wp-list-table td {
+    padding: 8px 10px;
+}
+.font-tester-admin code {
+    background: #f1f1f1;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+        ';
     }
-}
 
-// Front-end JavaScript (save as font-tester.js in the same directory)
-if (!function_exists('fotyte_font_tester_js_content')) {
-    function fotyte_font_tester_js_content() {
-        return "
-// ... (leave JS content as is, or prepend JS function names if desired)
-        ";
+    private function fotyte_get_frontend_js() {
+        return '
+jQuery(document).ready(function($) {
+    let currentFontName = "";
+
+    // Font selector change handler
+    $("#font-selector").on("change", function() {
+        const fontUrl = $(this).val();
+        const fontId = $(this).find("option:selected").data("id");
+        const fontName = $(this).find("option:selected").text();
+        
+        if (fontUrl) {
+            loadFont(fontUrl, fontName, fontId);
+            updateFontInfo(fontName, fontId);
+        } else {
+            resetPreview();
+        }
+    });
+
+    // Slider event handlers
+    $("#font-size-slider").on("input", function() {
+        const value = $(this).val();
+        $("#font-size-value").text(value);
+        updatePreviewStyles();
+    });
+
+    $("#line-height-slider").on("input", function() {
+        const value = $(this).val();
+        $("#line-height-value").text(value);
+        updatePreviewStyles();
+    });
+
+    $("#letter-spacing-slider").on("input", function() {
+        const value = $(this).val();
+        $("#letter-spacing-value").text(value);
+        updatePreviewStyles();
+    });
+
+    $("#word-spacing-slider").on("input", function() {
+        const value = $(this).val();
+        $("#word-spacing-value").text(value);
+        updatePreviewStyles();
+    });
+
+    // Sample text change handler
+    $("#sample-text").on("input", function() {
+        $("#preview-text").text($(this).val());
+    });
+
+    function loadFont(fontUrl, fontName, fontId) {
+        // Remove existing dynamic font styles
+        $("#dynamic-font-face").remove();
+        
+        // Create unique font family name
+        currentFontName = "FontTester_" + fontId + "_" + Date.now();
+        
+        // Create font-face CSS
+        const fontFaceCSS = `
+            @font-face {
+                font-family: "${currentFontName}";
+                src: url("${fontUrl}");
+                font-display: swap;
+            }
+        `;
+        
+        // Inject the font-face CSS
+        $("<style>")
+            .attr("id", "dynamic-font-face")
+            .html(fontFaceCSS)
+            .appendTo("head");
+        
+        // Apply the font to preview
+        updatePreviewStyles();
     }
-}
 
-// Create the CSS and JS files when the plugin is activated
-register_activation_hook(__FILE__, function() {
-    $plugin_dir = plugin_dir_path(__FILE__);
+    function updatePreviewStyles() {
+        if (!currentFontName) return;
+        
+        const fontSize = $("#font-size-slider").val();
+        const lineHeight = $("#line-height-slider").val();
+        const letterSpacing = $("#letter-spacing-slider").val();
+        const wordSpacing = $("#word-spacing-slider").val();
+        
+        $("#preview-text").css({
+            "font-family": `"${currentFontName}", sans-serif`,
+            "font-size": fontSize + "px",
+            "line-height": lineHeight,
+            "letter-spacing": letterSpacing + "px",
+            "word-spacing": wordSpacing + "px"
+        });
+    }
 
-    // Create front-end CSS file
-    file_put_contents($plugin_dir . 'font-tester.css', fotyte_font_tester_css_content());
+    function updateFontInfo(fontName, fontId) {
+        $("#current-font-info").html(`
+            <strong>Current Font:</strong> ${fontName}<br>
+            <strong>Font ID:</strong> ${fontId}
+        `);
+    }
 
-    // Create front-end JS file
-    file_put_contents($plugin_dir . 'font-tester.js', fotyte_font_tester_js_content());
-
-    // Create admin CSS file
-    file_put_contents($plugin_dir . 'font-tester-admin.css', fotyte_font_tester_admin_css_content());
-
-    // Create admin JS file
-    file_put_contents($plugin_dir . 'font-tester-admin.js', fotyte_font_tester_admin_js_content());
+    function resetPreview() {
+        $("#dynamic-font-face").remove();
+        $("#preview-text").css({
+            "font-family": "",
+            "font-size": "",
+            "line-height": "",
+            "letter-spacing": "",
+            "word-spacing": ""
+        }).text("Select a font to see the preview");
+        $("#current-font-info").html("");
+        currentFontName = "";
+    }
 });
+        ';
+    }
+
+    private function fotyte_get_admin_js() {
+        return '
+jQuery(document).ready(function($) {
+    // Font upload form handler
+    $("#font-upload-form").on("submit", function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        const fontFile = $("#font-file")[0].files[0];
+        const fontName = $("#font-name").val();
+        
+        if (!fontFile) {
+            alert("Please select a font file.");
+            return;
+        }
+        
+        formData.append("action", "upload_font");
+        formData.append("nonce", fontTesterAdmin.nonce);
+        formData.append("font_file", fontFile);
+        formData.append("font_name", fontName);
+        
+        const $submitBtn = $("#submit");
+        $submitBtn.prop("disabled", true).val("Uploading...");
+        
+        $.ajax({
+            url: fontTesterAdmin.ajax_url,
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    alert("Font uploaded successfully!");
+                    location.reload();
+                } else {
+                    alert("Error: " + response.data);
+                }
+            },
+            error: function() {
+                alert("An error occurred during upload.");
+            },
+            complete: function() {
+                $submitBtn.prop("disabled", false).val("Upload Font");
+            }
+        });
+    });
+
+    // Font delete handler
+    $(document).on("click", ".delete-font", function() {
+        if (!confirm("Are you sure you want to delete this font?")) {
+            return;
+        }
+        
+        const fontId = $(this).data("font-id");
+        const $row = $(this).closest("tr");
+        
+        $.ajax({
+            url: fontTesterAdmin.ajax_url,
+            type: "POST",
+            data: {
+                action: "delete_font",
+                nonce: fontTesterAdmin.nonce,
+                font_id: fontId
+            },
+            success: function(response) {
+                if (response.success) {
+                    $row.fadeOut(function() {
+                        $(this).remove();
+                        if ($("#fonts-list tbody tr").length === 0) {
+                            $("#fonts-list").html("<p>No fonts uploaded yet.</p>");
+                        }
+                    });
+                } else {
+                    alert("Error: " + response.data);
+                }
+            },
+            error: function() {
+                alert("An error occurred while deleting the font.");
+            }
+        });
+    });
+});
+        ';
+    }
+}
+
+// Initialize the plugin
+new fotyte_FontTypeTester();
 ?>
