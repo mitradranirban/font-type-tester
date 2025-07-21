@@ -2,16 +2,18 @@
 /**
  * Plugin Name: Font Type Tester
  * Plugin URI: https://github.com/mitradranirban/font-type-tester
- * Description: A comprehensive font testing tool with admin interface for font management.
- * Version: 1.1.7
+ * Description: A font testing tool with admin interface for secure font upload and typography preview
+ * Version: 1.1.8
  * Author: Anirban Mitra
- * License: GPL v2 or later
+ * License: GPLv2 or later
  */
 
-if (!defined('ABSPATH')) exit;
+if (!defined('ABSPATH')) {
+    exit;
+}
 
 class fotyte_FontTypeTester {
-    private $version = '1.1.7';
+    private $version = '1.1.8';
 
     public function __construct() {
         add_action('init', [$this, 'fotyte_init']);
@@ -39,6 +41,7 @@ class fotyte_FontTypeTester {
         global $wpdb;
         $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
         $charset_collate = $wpdb->get_charset_collate();
+
         $sql = "CREATE TABLE $table (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             font_name varchar(255) NOT NULL,
@@ -48,6 +51,7 @@ class fotyte_FontTypeTester {
             upload_date datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
         ) $charset_collate;";
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
     }
@@ -56,11 +60,13 @@ class fotyte_FontTypeTester {
         global $wp_filesystem;
         require_once ABSPATH . 'wp-admin/includes/file.php';
         WP_Filesystem();
+
         $upload_dir = wp_upload_dir();
         $dir = $upload_dir['basedir'] . '/font-tester/';
         if ($wp_filesystem->exists($dir)) {
             $wp_filesystem->rmdir($dir, true);
         }
+
         wp_cache_flush();
     }
 
@@ -69,7 +75,10 @@ class fotyte_FontTypeTester {
     }
 
     public function fotyte_enqueue_admin_scripts($hook) {
-        if ($hook !== 'settings_page_fotyte-font-type-tester') return;
+        if ($hook !== 'settings_page_fotyte-font-type-tester') {
+            return;
+        }
+
         wp_register_style('fotyte-font-tester-admin-css', false, [], $this->version);
         wp_enqueue_style('fotyte-font-tester-admin-css');
         wp_add_inline_style('fotyte-font-tester-admin-css', $this->fotyte_get_admin_css());
@@ -86,7 +95,9 @@ class fotyte_FontTypeTester {
 
     public function fotyte_enqueue_frontend_assets() {
         global $post;
-        if (!is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'fotyte_font_tester')) return;
+        if (!is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'fotyte_font_tester')) {
+            return;
+        }
 
         wp_register_style('fotyte-font-tester-css', false, [], $this->version);
         wp_enqueue_style('fotyte-font-tester-css');
@@ -103,109 +114,119 @@ class fotyte_FontTypeTester {
     }
 
     public function fotyte_admin_page() {
-        if (!current_user_can('manage_options')) wp_die('Access denied');
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Access denied', 'font-type-tester'));
+        }
+
         $fonts = $this->fotyte_get_fonts();
         ?>
-        <div class="wrap"><h1>Font Type Tester</h1>
+        <div class="wrap">
+            <h1>Font Type Tester</h1>
             <form id="fotyte-font-upload-form" enctype="multipart/form-data">
-                <input type="text" name="font_name" placeholder="Font Name (optional)">
-                <input type="file" name="font_file" accept=".ttf,.otf,.woff,.woff2" required>
+                <label>Font Name (optional):</label>
+                <input type="text" name="font_name" />
+                <label>Font File:</label>
+                <input type="file" name="font_file" accept=".ttf,.otf,.woff,.woff2" required />
                 <button class="button button-primary">Upload Font</button>
             </form>
             <hr />
             <h2>Uploaded Fonts</h2>
-            <ul>
-                <?php if (!$fonts): ?>
-                    <li>No fonts found.</li>
-                <?php else: foreach ($fonts as $font): ?>
-                    <li><strong><?php echo esc_html($font->font_name); ?></strong> <button class="button fotyte-delete-font" data-id="<?php echo esc_attr($font->id); ?>">Delete</button></li>
-                <?php endforeach; endif; ?>
-            </ul>
-            <hr />
-            <h2>Usage</h2>
-            <p>Use shortcode <code>[fotyte_font_tester]</code> in any page or post.</p>
+            <?php if (empty($fonts)) : ?>
+                <p>No fonts found.</p>
+            <?php else : ?>
+                <ul>
+                    <?php foreach ($fonts as $font): ?>
+                        <li>
+                            <?php echo esc_html($font->font_name); ?>
+                            <button class="button fotyte-delete-font" data-id="<?php echo esc_attr($font->id); ?>">Delete</button>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+            <p>Use shortcode: <code>[fotyte_font_tester]</code></p>
         </div>
         <?php
     }
 
     public function fotyte_upload_font() {
         check_ajax_referer('fotyte_font_tester_nonce', 'nonce');
-    
+
         if (!current_user_can('manage_options')) {
             wp_send_json_error('Unauthorized');
         }
-    
+
         if (!isset($_FILES['font_file']) || empty($_FILES['font_file']['name'])) {
-            wp_send_json_error('No font file uploaded');
+            wp_send_json_error('Font file missing');
         }
-    
+
         $file = $_FILES['font_file'];
-    
-        // Validate extension
+        $allowed_ext = ['ttf', 'otf', 'woff', 'woff2'];
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        $allowed = ['ttf', 'otf', 'woff', 'woff2'];
-        if (!in_array($ext, $allowed)) {
-            wp_send_json_error('Invalid file type');
+        if (!in_array($ext, $allowed_ext, true)) {
+            wp_send_json_error('Invalid font type');
         }
-    
-        // Upload via WP function
-        $uploaded = wp_handle_upload($file, ['test_form' => false]);
-        if (!empty($uploaded['error'])) {
-            wp_send_json_error($uploaded['error']);
+
+        $upload = wp_handle_upload($file, ['test_form' => false]);
+        if (!empty($upload['error'])) {
+            wp_send_json_error($upload['error']);
         }
-    
-        $upload_dir = wp_upload_dir();
-        $font_dir  = $upload_dir['basedir'] . '/font-tester/';
-        $obfuscated_name = 'fotyte_' . wp_generate_password(12, false) . '.' . $ext;
-        $target_path = $font_dir . $obfuscated_name;
-    
-        // Use the WP Filesystem API
+
+        // Move using WordPress filesystem
         global $wp_filesystem;
         require_once ABSPATH . 'wp-admin/includes/file.php';
         WP_Filesystem();
-        if (!$wp_filesystem->move($uploaded['file'], $target_path, true)) {
-            wp_send_json_error('Could not move file');
-        }
-    
-        $font_name = !empty($_POST['font_name']) ? sanitize_text_field(wp_unslash($_POST['font_name'])) : pathinfo($file['name'], PATHINFO_FILENAME);
-    
-        global $wpdb;
-        $result = $wpdb->insert("{$wpdb->prefix}fotyte_font_tester_fonts", [
-            'font_name' => $font_name,
-            'original_filename' => $file['name'],
-            'obfuscated_filename' => $obfuscated_name,
-            'file_path' => $target_path
-        ]);
-    
-        if (!$result) {
-            wp_send_json_error('DB insert failed');
-        }
-    
-        wp_cache_delete('fotyte_all_fonts', 'fotyte_font_tester');
-        wp_send_json_success(['font_name' => $font_name]);
-    }
-    
 
-    public function fotyte_delete_font() {
-        check_ajax_referer('fotyte_font_tester_nonce', 'nonce');
-        if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
+        $upload_dir = wp_upload_dir();
+        $font_dir = trailingslashit($upload_dir['basedir']) . 'font-tester/';
+        $obfuscated_filename = 'fotyte_' . wp_generate_password(12, false) . '.' . $ext;
+        $target_file = $font_dir . $obfuscated_filename;
+        if (!$wp_filesystem->move($upload['file'], $target_file, true)) {
+            wp_send_json_error('Storage error');
+        }
 
-        if (!isset($_POST['font_id']) || !is_numeric($_POST['font_id'])) wp_send_json_error('Invalid ID');
-        $id = intval($_POST['font_id']);
+        $font_name = isset($_POST['font_name']) ? sanitize_text_field(wp_unslash($_POST['font_name'])) : pathinfo($file['name'], PATHINFO_FILENAME);
 
         global $wpdb;
         $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
-        $font = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $id));
-        if (!$font) wp_send_json_error('Font not found');
+        $wpdb->insert($table, [
+            'font_name' => $font_name,
+            'original_filename' => sanitize_file_name($file['name']),
+            'obfuscated_filename' => $obfuscated_filename,
+            'file_path' => $target_file,
+        ]);
+
+        wp_cache_delete('fotyte_all_fonts', 'fotyte_font_tester');
+
+        wp_send_json_success(['font_name' => $font_name]);
+    }
+
+    public function fotyte_delete_font() {
+        check_ajax_referer('fotyte_font_tester_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        $font_id = isset($_POST['font_id']) ? (int) $_POST['font_id'] : 0;
+        if ($font_id <= 0) {
+            wp_send_json_error('Invalid ID');
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
+        $font = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $font_id));
+        if (!$font) {
+            wp_send_json_error('Font not found');
+        }
 
         if (file_exists($font->file_path)) {
             wp_delete_file($font->file_path);
         }
 
-        $wpdb->delete($table, ['id' => $id]);
+        $wpdb->delete($table, ['id' => $font_id]);
         wp_cache_delete('fotyte_all_fonts', 'fotyte_font_tester');
 
-        wp_send_json_success('Font deleted');
+        wp_send_json_success('Deleted');
     }
 
     private function fotyte_get_fonts() {
@@ -213,21 +234,19 @@ class fotyte_FontTypeTester {
         if ($cache !== false) {
             return $cache;
         }
-    
+
         global $wpdb;
         $table = $wpdb->prefix . 'fotyte_font_tester_fonts';
-        $query = $wpdb->prepare("SELECT * FROM {$table} WHERE 1=1 ORDER BY upload_date DESC");
-        $fonts = $wpdb->get_results($query);
-    
+        $fonts = $wpdb->get_results("SELECT * FROM {$table} ORDER BY upload_date DESC");
+
         $url_base = wp_upload_dir()['baseurl'] . '/font-tester/';
         foreach ($fonts as $font) {
             $font->url = $url_base . $font->obfuscated_filename;
         }
-    
-        wp_cache_set('fotyte_all_fonts', $fonts, 'fotyte_font_tester', HOUR_IN_SECONDS);
+
+        wp_cache_set('fotyte_all_fonts', $fonts, 'fotyte_font_tester', 3600);
         return $fonts;
     }
-    
 
     private function fotyte_get_frontend_css() {
         return '#fotyte-font-preview{padding:20px;border:1px dashed #ccc;background:#f9f9f9;}';
@@ -235,16 +254,14 @@ class fotyte_FontTypeTester {
 
     private function fotyte_get_frontend_js() {
         return "jQuery(document).ready(function($){
-            $('#fotyte-font-selector').on('change',function(){
-                const fontUrl=$(this).val();
-                const fontName=$(this).find('option:selected').text();
-                if(!fontUrl){$('#fotyte-font-preview').text('Select a font');return;}
-                const id='fotyte-font-'+Date.now();
-                const fontFace='@font-face{font-family:\"'+id+'\";src:url(\"'+fontUrl+'\");}';
-                $('<style>').attr('id',id).text(fontFace).appendTo('head');
-                $('#fotyte-font-preview').css('font-family','\"'+id+'\",sans-serif').text($('#fotyte-sample-text').val());
+            $('#fotyte-font-selector').on('change', function(){
+                const fontUrl = $(this).val();
+                const fontId = 'fotyte-' + Date.now();
+                const fontFace = '@font-face{font-family: \"' + fontId + '\"; src: url(\"' + fontUrl + '\");}';
+                $('<style>').attr('id', fontId).text(fontFace).appendTo('head');
+                $('#fotyte-font-preview').css('font-family', fontId).text($('#fotyte-sample-text').val());
             });
-            $('#fotyte-sample-text').on('input',function(){
+            $('#fotyte-sample-text').on('input', function(){
                 $('#fotyte-font-preview').text($(this).val());
             });
         });";
@@ -256,31 +273,30 @@ class fotyte_FontTypeTester {
 
     private function fotyte_get_admin_js() {
         return "jQuery(document).ready(function($){
-            $('#fotyte-font-upload-form').on('submit',function(e){
+            $('#fotyte-font-upload-form').on('submit', function(e){
                 e.preventDefault();
-                const form = new FormData(this);
-                form.append('action','fotyte_upload_font');
-                form.append('nonce',fotyteFontTesterAdmin.nonce);
+                let formData = new FormData(this);
+                formData.append('action', 'fotyte_upload_font');
+                formData.append('nonce', fotyteFontTesterAdmin.nonce);
                 $.ajax({
-                    method:'POST',
-                    url:fotyteFontTesterAdmin.ajax_url,
-                    data:form,
-                    processData:false,
-                    contentType:false,
-                    success:function(r){
-                        if(r.success){alert('Uploaded');location.reload();}else{alert('Error:'+r.data);}
+                    method: 'POST',
+                    url: fotyteFontTesterAdmin.ajax_url,
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res){
+                        if(res.success){ location.reload(); } else { alert(res.data); }
                     }
                 });
             });
-            $('.fotyte-delete-font').on('click',function(){
-                if(!confirm('Delete this font?'))return;
-                $.post(fotyteFontTesterAdmin.ajax_url,{
-                    action:'fotyte_delete_font',
-                    nonce:fotyteFontTesterAdmin.nonce,
-                    font_id:$(this).data('id')
-                },function(r){
-                    if(r.success)location.reload();
-                    else alert('Error:'+r.data);
+            $('.fotyte-delete-font').on('click', function(){
+                if (!confirm('Delete this font?')) return;
+                $.post(fotyteFontTesterAdmin.ajax_url, {
+                    action: 'fotyte_delete_font',
+                    nonce: fotyteFontTesterAdmin.nonce,
+                    font_id: $(this).data('id')
+                }, function(res){
+                    if(res.success){ location.reload(); } else { alert(res.data); }
                 });
             });
         });";

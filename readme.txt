@@ -5,7 +5,7 @@ Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools,
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.7
+Stable tag: 1.1.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -105,7 +105,19 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 
 == Changelog ==
+= 1.1.8 =
+* Sanitized all `$_POST` and `$_FILES` inputs with `sanitize_text_field()` and `wp_unslash()`
+* Added `isset()` and `is_numeric()` guards for all external input
+* Used proper `$wpdb->prepare()` syntax — avoided direct string interpolation and removed unsafe `$table` placeholders
+* Implemented WP object caching via `wp_cache_get()` and `wp_cache_set()` for font listing and lookup
+* Used `wp_cache_delete()` on upload/delete to invalidate cache
+* Added version parameters (`'1.1.8'`) to all styles/scripts to fix browser cache busting
+* Passed PHPCS codesniffing standards with WordPress-Extra + WordPress-Docs + WordPress-VIP rules
+
 = 1.1.7 =
+* Fixed `$wpdb` query interpolation warnings
+* Sanitized inputs and replaced `rename()` with `WP_Filesystem->move()`
+* Implemented object caching pattern for all fetching queries
 * Fixed database queries to use `$wpdb->prepare()` — no raw variable interpolation
 * Improved sanitization and validation for `$_POST['font_name']` using `isset()` and `wp_unslash()`
 * Validated and sanitized `$_FILES['font_file']` input properly
@@ -166,16 +178,7 @@ Improved database queries with prepared statements
 Cleaner admin interface with WordPress styling
 Automatic page reload after font upload for immediate feedback
 
-= 1.0.0 =
-* Initial release
-* Font upload functionality with TTF, OTF, WOFF, WOFF2 support
-* Real-time typography controls (size, line height, letter spacing, word spacing)
-* Font source obfuscation for security
-* Custom sample text input
-* Responsive design
-* Secure AJAX handling
-* Database integration for font management
-* Automatic cleanup on deactivation
+ 
  
 == Technical Requirements ==
 
