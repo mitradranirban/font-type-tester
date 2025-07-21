@@ -5,7 +5,7 @@ Tags: fonts, typography, font-tester, web-fonts, font-preview, typography-tools,
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.8
+Stable tag: 1.1.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -105,6 +105,21 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 
 == Changelog ==
+= 1.1.9 =
+* **SECURITY UPDATE**: Fixed all WordPress Coding Standards warnings and security vulnerabilities
+* Implemented proper input sanitization for $_FILES['font_file'] using wp_check_filetype() and wp_handle_upload()
+* Fixed SQL injection vulnerabilities by properly escaping table names with backticks in prepared statements
+* Replaced direct database queries with WordPress built-in methods ($wpdb->insert(), $wpdb->delete())
+* Enhanced caching implementation with wp_cache_get(), wp_cache_set(), and proper cache invalidation
+* Added comprehensive nonce verification and capability checks for all admin functions
+* Implemented secure file upload handling with MIME type validation
+* Added proper error handling and user feedback for upload/delete operations
+* Enhanced input validation using sanitize_text_field(), wp_unslash(), and absint()
+* Improved database query performance with object caching (3600 second cache timeout)
+* Fixed WordPress.Security.ValidatedSanitizedInput.InputNotSanitized warnings
+* Fixed WordPress.DB.PreparedSQL.InterpolatedNotPrepared warnings
+* Fixed WordPress.DB.DirectDatabaseQuery.DirectQuery and NoCaching warnings
+
 = 1.1.8 =
 * Sanitized all `$_POST` and `$_FILES` inputs with `sanitize_text_field()` and `wp_unslash()`
 * Added `isset()` and `is_numeric()` guards for all external input
