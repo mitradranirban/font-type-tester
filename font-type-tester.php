@@ -5,7 +5,7 @@
  * Description: A comprehensive font testing tool with real-time typography controls
  * submitter: mitradranirban
  * Author: mitradranirban
- * Version: 1.1.11
+ * Version: 1.1.12
  * License: GPL v2 or later
  * Text Domain: font-type-tester
  */
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 
 class FotyteWordPressFontTester {
     
-    private $version = '1.1.11';
+    private $version = '1.1.12';
     
     public function __construct() {
         register_activation_hook(__FILE__, [$this, 'fotyte_on_activation']);
@@ -92,10 +92,19 @@ if (!isset($_FILES['font_file']) || !isset($_FILES['font_file']['error']) || $_F
     wp_die(esc_html__('No file uploaded or upload error occurred', 'font-type-tester'));
 }
 
-// Sanitize file data
-$font_file = array_map('sanitize_text_field', $_FILES['font_file']);
-// Exception for tmp_name which needs to remain unsanitized for file operations
-$font_file['tmp_name'] = $_FILES['font_file']['tmp_name'];
+// Validate and sanitize file data properly
+if (!isset($_FILES['font_file']['tmp_name']) || empty($_FILES['font_file']['tmp_name'])) {
+    wp_die(esc_html__('No temporary file found.', 'font-type-tester'));
+}
+
+// Sanitize most file data, but preserve tmp_name as-is for file operations
+$font_file = array(
+    'name' => isset($_FILES['font_file']['name']) ? sanitize_file_name($_FILES['font_file']['name']) : '',
+    'type' => isset($_FILES['font_file']['type']) ? sanitize_text_field($_FILES['font_file']['type']) : '',
+    'size' => isset($_FILES['font_file']['size']) ? absint($_FILES['font_file']['size']) : 0,
+    'tmp_name' => $_FILES['font_file']['tmp_name'], // Keep unsanitized for file operations
+    'error' => isset($_FILES['font_file']['error']) ? absint($_FILES['font_file']['error']) : UPLOAD_ERR_NO_FILE
+);
 
 // Enhanced file validation with sanitized data
 $file_size = isset($font_file['size']) ? absint($font_file['size']) : 0;
@@ -118,8 +127,12 @@ if (!in_array($file_extension, $allowed_extensions, true)) {
 }
 
         
-        // Additional security: Check if file is actually a font by reading first few bytes
-        $file_content = file_get_contents($font_file['tmp_name'], false, null, 0, 4);
+        // Validate tmp_name exists and is readable before using it
+      if (!is_uploaded_file($font_file['tmp_name']) || !is_readable($font_file['tmp_name'])) {
+      wp_die(esc_html__('Invalid or unreadable temporary file.', 'font-type-tester'));
+}
+
+ $file_content = file_get_contents($font_file['tmp_name'], false, null, 0, 4);
         $font_signatures = [
             'ttf' => ["\x00\x01\x00\x00", "true"], // TTF signature
             'otf' => ["OTTO"], // OTF signature  
@@ -163,9 +176,6 @@ if (!in_array($file_extension, $allowed_extensions, true)) {
       if (!$wp_filesystem->put_contents($target_path, $file_contents, 0644)) {
       wp_die(esc_html__('Failed to move uploaded file.', 'font-type-tester'));
 }
-        
-        // Set proper file permissions
-        chmod($target_path, 0644);
         
         // Get font name from form or use filename
         $font_name = isset($_POST['font_name']) && !empty($_POST['font_name']) ? 
@@ -358,6 +368,7 @@ if (!in_array($file_extension, $allowed_extensions, true)) {
         $font_name = isset($_GET['font_name']) ? sanitize_text_field(wp_unslash($_GET['font_name'])) : '';
         echo '<div class="notice notice-success is-dismissible">';
         if ($font_name) {
+            /* translators: %s: font name */
             printf(esc_html__('Font "%s" uploaded successfully!', 'font-type-tester'), esc_html($font_name));
         } else {
             esc_html_e('Font uploaded successfully!', 'font-type-tester');

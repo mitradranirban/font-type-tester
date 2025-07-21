@@ -5,7 +5,7 @@ Tags: fonts, font-tester, font-preview, typography-tools, static-fonts
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.11
+Stable tag: 1.1.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -105,6 +105,41 @@ Yes! Each uploaded font can be deleted individually through the interface, which
 
 
 == Changelog ==
+= 1.1.12 =
+* **Security Enhancements**
+  - Added proper nonce verification for all form submissions and GET parameters
+  - Implemented comprehensive input validation and sanitization for file uploads
+  - Added isset() checks for all $_FILES array access to prevent undefined index errors
+  - Enhanced file validation with binary signature checking for font files
+
+* **WordPress Standards Compliance**
+  - Replaced direct filesystem operations with WP_Filesystem API methods
+  - Replaced move_uploaded_file() with WP_Filesystem::put_contents()
+  - Replaced unlink() with wp_delete_file() for file deletion
+  - Removed direct chmod() calls in favor of WP_Filesystem permissions
+  - Added translators comments for all internationalized strings with placeholders
+
+* **Database Improvements**
+  - Implemented proper database query caching with wp_cache_get/set
+  - Added phpcs:ignore comments for necessary direct database queries
+  - Enhanced error handling for database operations with automatic file cleanup
+
+* **File Upload Security**
+  - Added file size validation (10MB limit for font files)
+  - Implemented binary signature verification for TTF, OTF, WOFF, and WOFF2 files
+  - Enhanced filename sanitization and unique filename generation
+  - Added comprehensive error messages for various upload failure scenarios
+
+* **Performance Optimizations**
+  - Implemented font data caching with 1-hour expiration
+  - Added cache invalidation on font upload/delete operations
+  - Optimized database queries with proper prepared statements
+
+* **Bug Fixes**
+  - Fixed undefined array index warnings for $_FILES superglobal
+  - Resolved file permission issues with proper WordPress filesystem handling
+  - Fixed potential XSS vulnerabilities in admin interface
+  - Corrected improper sanitization of temporary file paths
 = 1.1.11 =
 * Implemented custom font upload handler bypassing WordPress MIME restrictions
 * Added binary file signature validation for TTF, OTF, WOFF, and WOFF2 formats
