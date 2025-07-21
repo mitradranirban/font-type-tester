@@ -87,25 +87,36 @@ class FotyteWordPressFontTester {
             wp_die(esc_html__('Invalid nonce', 'font-type-tester'));
         }
         
-        // Validate file upload
-        if (!isset($_FILES['font_file']) || $_FILES['font_file']['error'] !== UPLOAD_ERR_OK) {
-            wp_die(esc_html__('No file uploaded or upload error occurred', 'font-type-tester'));
-        }
-        
-        $font_file = $_FILES['font_file'];
-        
-        // Validate file extension (case insensitive)
-        $allowed_extensions = ['ttf', 'otf', 'woff', 'woff2'];
-        $file_extension = strtolower(pathinfo($font_file['name'], PATHINFO_EXTENSION));
-        
-        if (!in_array($file_extension, $allowed_extensions, true)) {
-            wp_die(esc_html__('Invalid font file type. Only TTF, OTF, WOFF, and WOFF2 files are allowed.', 'font-type-tester'));
-        }
-        
-        // Validate file size (limit to 10MB for fonts)
-        if ($font_file['size'] > 10 * 1024 * 1024) {
-            wp_die(esc_html__('File too large. Maximum size is 10MB.', 'font-type-tester'));
-        }
+        // Validate file upload with proper isset() checks
+if (!isset($_FILES['font_file']) || !isset($_FILES['font_file']['error']) || $_FILES['font_file']['error'] !== UPLOAD_ERR_OK) {
+    wp_die(esc_html__('No file uploaded or upload error occurred', 'font-type-tester'));
+}
+
+// Sanitize file data
+$font_file = array_map('sanitize_text_field', $_FILES['font_file']);
+// Exception for tmp_name which needs to remain unsanitized for file operations
+$font_file['tmp_name'] = $_FILES['font_file']['tmp_name'];
+
+// Enhanced file validation with sanitized data
+$file_size = isset($font_file['size']) ? absint($font_file['size']) : 0;
+$file_name = isset($font_file['name']) ? sanitize_file_name($font_file['name']) : '';
+
+if (empty($file_name)) {
+    wp_die(esc_html__('Invalid file name.', 'font-type-tester'));
+}
+
+// Validate file size (limit to 10MB for fonts)
+if ($file_size > 10 * 1024 * 1024) {
+    wp_die(esc_html__('File too large. Maximum size is 10MB.', 'font-type-tester'));
+}
+
+// Validate file extension (case insensitive)
+$allowed_extensions = ['ttf', 'otf', 'woff', 'woff2'];
+$file_extension = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+if (!in_array($file_extension, $allowed_extensions, true)) {
+    wp_die(esc_html__('Invalid font file type. Only TTF, OTF, WOFF, and WOFF2 files are allowed.', 'font-type-tester'));
+}
+
         
         // Additional security: Check if file is actually a font by reading first few bytes
         $file_content = file_get_contents($font_file['tmp_name'], false, null, 0, 4);
@@ -142,10 +153,16 @@ class FotyteWordPressFontTester {
         $target_path = $font_dir . $obfuscated_filename;
         $file_url = $upload_dir['baseurl'] . '/font-tester/' . $obfuscated_filename;
         
-        // Move uploaded file to our custom directory
-        if (!move_uploaded_file($font_file['tmp_name'], $target_path)) {
-            wp_die(esc_html__('Failed to move uploaded file.', 'font-type-tester'));
-        }
+       // Initialize WP_Filesystem
+      global $wp_filesystem;
+      require_once ABSPATH . 'wp-admin/includes/file.php';
+      WP_Filesystem();
+
+      // Move uploaded file to our custom directory using WP_Filesystem
+      $file_contents = $wp_filesystem->get_contents($font_file['tmp_name']);
+      if (!$wp_filesystem->put_contents($target_path, $file_contents, 0644)) {
+      wp_die(esc_html__('Failed to move uploaded file.', 'font-type-tester'));
+}
         
         // Set proper file permissions
         chmod($target_path, 0644);
@@ -174,7 +191,7 @@ class FotyteWordPressFontTester {
         if (false === $inserted) {
             // Clean up file if database insert fails
             if (file_exists($target_path)) {
-                unlink($target_path);
+                wp_delete_file($target_path);
             }
             wp_die(esc_html__('Database error while saving font information.', 'font-type-tester'));
         }
@@ -186,9 +203,9 @@ class FotyteWordPressFontTester {
         $redirect_url = add_query_arg([
             'page' => 'fotyte-font-type-tester',
             'uploaded' => '1',
-            'font_name' => urlencode($font_name)
+            'font_name' => urlencode($font_name),
+            '_wpnonce' => wp_create_nonce('fotyte_font_upload_success')
         ], admin_url('options-general.php'));
-        
         wp_redirect($redirect_url);
         exit;
     }
@@ -324,21 +341,31 @@ class FotyteWordPressFontTester {
             'nonce' => wp_create_nonce('fotyte_font_tester_nonce'),
         ]);
     }
-    
-    public function fotyte_admin_page() {
-        if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('Access denied', 'font-type-tester'));
+
+     public function fotyte_admin_page() {
+     if (!current_user_can('manage_options')) {
+        wp_die(esc_html__('Access denied', 'font-type-tester'));
+     }
+
+     // Add nonce verification for GET parameters
+     if (isset($_GET['uploaded']) || isset($_GET['font_name'])) {
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'fotyte_font_upload_success')) {
+            wp_die(esc_html__('Invalid security token', 'font-type-tester'));
         }
-        if (isset($_GET['uploaded']) && $_GET['uploaded'] === '1') {
-            $font_name = isset($_GET['font_name']) ? sanitize_text_field(wp_unslash($_GET['font_name'])) : '';
-            echo '<div class="notice notice-success is-dismissible"><p>';
-            if ($font_name) {
-                printf(esc_html__('Font "%s" uploaded successfully!', 'font-type-tester'), esc_html($font_name));
-            } else {
-                esc_html_e('Font uploaded successfully!', 'font-type-tester');
-            }
-            echo '</p></div>';
+     }
+
+     if (isset($_GET['uploaded']) && $_GET['uploaded'] === '1') {
+        $font_name = isset($_GET['font_name']) ? sanitize_text_field(wp_unslash($_GET['font_name'])) : '';
+        echo '<div class="notice notice-success is-dismissible">';
+        if ($font_name) {
+            printf(esc_html__('Font "%s" uploaded successfully!', 'font-type-tester'), esc_html($font_name));
+        } else {
+            esc_html_e('Font uploaded successfully!', 'font-type-tester');
         }
+        echo '</div>';
+     }
+   
+
         $fonts = $this->fotyte_get_fonts();
         ?>
         <div class="wrap">
@@ -520,7 +547,7 @@ class FotyteWordPressFontTester {
         return ob_get_clean();
     }
     
-    /private function fotyte_get_frontend_css() {
+    private function fotyte_get_frontend_css() {
         return '
         .fotyte-font-tester-container {
             max-width: 800px;
